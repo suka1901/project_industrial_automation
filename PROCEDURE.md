@@ -356,17 +356,44 @@ conditions are represented, and reports how many it held back.
 
 ## C2. Start Label Studio
 
-```bash
+```powershell
 pip install label-studio
+
+# Serve the images from disk instead of uploading them. The browser import
+# silently caps at 100 files, and 280 would fail without saying so.
+# The document root must be the PARENT of the image folder.
+$env:LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED = "true"
+$env:LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT = "C:\Users\suraj\Desktop\INA700\model\dataset\label"
 label-studio start
 ```
+
+Both variables must be set **before** Label Studio starts, in the same shell.
 
 It opens on `http://localhost:8080`. Create an account — it is local, nothing
 leaves the machine.
 
 1. **Create Project** → name it `INA700`.
-2. **Data Import** → drag in everything from `model/dataset/label/images/`.
-3. **Labeling Setup** → **Custom template** → paste `model/label_config.xml`.
+2. **Settings → Labeling Interface → Code** → paste the contents of
+   `model/label_config.xml`. Paste the XML, nothing else.
+3. **Settings → Cloud Storage → Add Source Storage → Local files**:
+
+   | Field | Value |
+   |---|---|
+   | Absolute local path | `...\model\dataset\label\images` |
+   | File Filter Regex | `.*\.jpg` |
+   | Treat every bucket object as a source file | **ON** |
+
+4. **Sync Storage.**
+
+**Expect:** exactly **280 tasks**, and an image visible when you open one.
+
+| Problem | Fix |
+|---|---|
+| "cannot be the same as LOCAL_FILES_DOCUMENT_ROOT" | The root must be the parent folder — `...\label`, not `...\label\images` |
+| Sync gives 1 task, not 280 | "Treat every bucket object as a source file" was off |
+| Tasks exist but no image appears | Local files serving was not enabled when the server started |
+| `manifest.csv` appears as a task | The storage is pointing at `label/` instead of `label/images/` |
+| Import stops at 100 | You used drag-and-drop rather than local storage |
 
 > The order of the three labels in that file **is** the class order in the
 > export. It matches `detector.class_map` in `config.yaml`. Do not reorder them.
