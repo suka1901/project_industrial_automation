@@ -413,6 +413,17 @@ Keys `1` `2` `3` pick circle, square, star. Drag a box around each one.
 Photos with `expect_labels = no` in `manifest.csv` are the empty ones. Submit
 each of them without drawing anything.
 
+> **Submit, never Skip.** The two buttons sit side by side. Skip records a
+> *cancelled* annotation, which does not export — so a skipped negative teaches
+> the model nothing, which is the one job it had. Check the count: submitted
+> annotations should equal the images you have been through.
+
+**Label across the shapes, not down the list.** Working alphabetically means
+hours of circles before the first square, and a model trained on that finds
+circles and is blind to everything else. Spread the work so all three classes
+build up together — it matters if you want to pre-annotate the remainder from a
+model trained on the first batch.
+
 ## C4. Export
 
 **Export** → **YOLO** → download the zip. Unpack it so you get:
