@@ -1,0 +1,104 @@
+@startuml INA700_runtime
+' INA700 - threads and their wiring
+' Author: Suraj Karki
+' Course: INA700 - AI-based pick and place
+'
+' Each thread owns one distinct job. They share nothing but bounded queues
+' and one lock-guarded state object handing out immutable snapshots.
+
+title INA700 - runtime and threading
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #444444
+skinparam class {
+  BorderColor #333333
+  BackgroundColor #FAFAFA
+  BackgroundColor<<thread>> #EAF2FB
+  BackgroundColor<<queue>> #FDF6E8
+}
+
+abstract class Worker <<thread>> {
+  -shutdown : Event
+  +{abstract} step()
+  +on_start()
+  +on_stop()
+  +run()
+}
+
+class CaptureWorker <<thread>> {
+  +step()
+}
+class InferenceWorker <<thread>> {
+  +step()
+}
+class CycleWorker <<thread>> {
+  +step()
+}
+class ConnectionWorker <<thread>> {
+  -quit_message : str
+  +step()
+}
+
+class ThreadSupervisor {
+  -workers : List<Thread>
+  +add(worker)
+  +start_all()
+  +stop_all(timeout_s)
+}
+
+class LatestResultHolder {
+  +__call__() : InferenceResult [0..1]
+}
+
+class "Queue<Frame>\nmaxsize=2" as FrameQueue <<queue>>
+class "Queue<InferenceResult>\nmaxsize=2" as ResultQueue <<queue>>
+class "Queue<PickRequest>\nmaxsize=8" as RequestQueue <<queue>>
+
+class Container {
+  +build_frame_source() : FrameSource
+  +build_detector() : ObjectDetector
+  +build_vision_pipeline() : VisionPipeline
+  +build_coordinate_service() : CoordinateService
+  +build_selector() : ObjectSelector
+  +build_transport() : RobotTransport
+  +build_calibrator() : SceneCalibrator [0..1]
+}
+
+Worker <|-- CaptureWorker
+Worker <|-- InferenceWorker
+Worker <|-- CycleWorker
+Worker <|-- ConnectionWorker
+ThreadSupervisor o-- "4" Worker
+
+CaptureWorker --> FrameQueue : writes
+InferenceWorker --> FrameQueue : reads
+InferenceWorker --> ResultQueue : writes
+LatestResultHolder --> ResultQueue : drains
+CycleWorker --> RequestQueue : reads
+CycleWorker --> CycleController
+InferenceWorker --> VisionPipeline
+CaptureWorker --> FrameSource
+ConnectionWorker --> RobotTransport
+
+TkView --> RequestQueue : writes
+TkView --> SharedState : reads snapshots
+InferenceWorker --> SharedState : writes
+CycleWorker --> SharedState : writes
+ConnectionWorker --> SharedState : writes
+
+Container ..> ThreadSupervisor : main.py wires
+
+note bottom of ThreadSupervisor
+  Tkinter must own the main thread, so the GUI
+  is not a Worker. It polls SharedState on a
+  timer and hands requests over by queue.
+end note
+
+note right of FrameQueue
+  Bounded at 2. A slow stage drops the stale
+  frame instead of growing memory.
+end note
+
+@enduml

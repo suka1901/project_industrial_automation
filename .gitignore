@@ -1,0 +1,27 @@
+# The dataset: 2.1 GB of camera frames. Kept on disk and backed up separately,
+# not in git - the repository is for the code that processes them.
+model/dataset/raw/
+model/dataset/label/
+model/dataset/yolo/
+*.zip
+
+# Trained weights. Rebuildable from the dataset and train_yolo.ipynb.
+model/*.pt
+model/best_ncnn_model/
+model/runs/
+
+# Calibration output, which is specific to one physical setup.
+pi/calibration/homography.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editors and OS
+.idea/
+*.swp
+Thumbs.db
+desktop.ini

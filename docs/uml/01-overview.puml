@@ -1,0 +1,100 @@
+@startuml INA700_overview
+' INA700 - system overview
+' Author: Suraj Karki
+' Course: INA700 - AI-based pick and place
+'
+' The layering in one picture. Only one adapter per port is shown; the full
+' set is in 03-ports-adapters.puml. Dependencies point downward only.
+
+title INA700 - architecture overview
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 12
+skinparam ranksep 28
+skinparam ArrowColor #555555
+skinparam class {
+  BorderColor #333333
+  BackgroundColor #FDF6E8
+  BackgroundColor<<port>> #EAF2FB
+  BackgroundColor<<use case>> #EFF6EC
+  BackgroundColor<<value>> #F2F2EE
+  BackgroundColor<<utility>> #F2F2EE
+}
+
+package "infrastructure" as INFRA {
+  class Container
+  class ThreadSupervisor
+}
+
+package "adapters  (I/O, swappable from config)" as ADAPT {
+  class Camera
+  class YoloDetector
+  class HarmonicOrientationEstimator
+  class ArucoCalibrator
+  class TcpServerTransport
+  class TkView
+}
+
+package "ports  (abstract interfaces)" as PORTS {
+  interface FrameSource <<port>>
+  interface ObjectDetector <<port>>
+  interface OrientationEstimator <<port>>
+  interface SceneCalibrator <<port>>
+  interface RobotTransport <<port>>
+  interface View <<port>>
+}
+
+package "application  (use cases)" as APP {
+  class VisionPipeline <<use case>>
+  class CoordinateService <<use case>>
+  class CycleController <<use case>>
+  class SharedState <<use case>>
+}
+
+package "domain  (pure rules, no I/O)" as DOMAIN {
+  class Detection <<value>>
+  class DetectedObject <<value>>
+  class WorldPose <<value>>
+  enum Shape
+  class geometry <<utility>>
+  class orientation <<utility>>
+}
+
+Camera ..|> FrameSource
+YoloDetector ..|> ObjectDetector
+HarmonicOrientationEstimator ..|> OrientationEstimator
+ArucoCalibrator ..|> SceneCalibrator
+TcpServerTransport ..|> RobotTransport
+TkView ..|> View
+
+VisionPipeline --> ObjectDetector
+VisionPipeline --> OrientationEstimator
+VisionPipeline --> SceneCalibrator
+CycleController --> RobotTransport
+CycleController --> CoordinateService
+CycleController --> SharedState
+TkView --> SharedState
+
+VisionPipeline ..> Detection
+CoordinateService ..> DetectedObject
+CoordinateService ..> WorldPose
+CoordinateService ..> geometry
+HarmonicOrientationEstimator ..> orientation
+Detection --> Shape
+
+Container ..> ADAPT : creates
+Container ..> APP : wires
+ThreadSupervisor ..> APP : runs on threads
+
+note right of Container
+  The only file that names a concrete class.
+  Change config.yaml and the same use cases
+  run against a file replay, a mock detector
+  and a loopback robot.
+end note
+
+@enduml

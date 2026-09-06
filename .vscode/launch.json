@@ -1,0 +1,66 @@
+{
+    // INA700 run configurations.
+    // Open the Run and Debug panel, pick one from the dropdown, press the play
+    // button. No typing, no arguments to remember.
+    //
+    // Every entry uses the interpreter selected in the status bar, so make sure
+    // that says opencv_env before running.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "1 - Pre-flight (packages, camera, marker)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/pi/tools/preflight.py",
+            "cwd": "${workspaceFolder}/pi",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "2 - ArUco check (live marker + jitter)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/pi/calibration/aruco_check.py",
+            "cwd": "${workspaceFolder}/pi",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "3 - Capture dataset photos",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/pi/tools/capture_gui.py",
+            "cwd": "${workspaceFolder}/pi",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "4 - Slot angles",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/pi/calibration/slot_angles.py",
+            "cwd": "${workspaceFolder}/pi",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "5 - Run the system (GUI)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/pi/main.py",
+            "cwd": "${workspaceFolder}/pi",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "6 - Smoke test (offline, no hardware)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/pi/smoke_test.py",
+            "args": ["--config", "config/config.mock.yaml"],
+            "cwd": "${workspaceFolder}/pi",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

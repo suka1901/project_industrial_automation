@@ -1,0 +1,95 @@
+@startuml INA700_application
+' INA700 - application layer
+' Author: Suraj Karki
+' Course: INA700 - AI-based pick and place
+'
+' The use cases. They orchestrate the ports and hold no I/O of their own.
+
+title INA700 - application layer
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #444444
+skinparam class {
+  BorderColor #333333
+  BackgroundColor #FAFAFA
+  BackgroundColor<<port>> #EAF2FB
+}
+
+class VisionPipeline {
+  -budget_ms : float
+  +warm_up()
+  +process(frame) : InferenceResult
+}
+
+class CoordinateService {
+  -pick_depth_mm : float
+  -angle_sign : int
+  -slot_angles : Map<Shape, float>
+  +to_pose(detection) : WorldPose
+  +to_objects(detections) : List<DetectedObject>
+}
+
+class CycleController {
+  -max_attempts : int
+  -verify_tolerance_mm : float
+  -cycle_index : int
+  +run_cycle(request) : CycleReport
+  -_object_was_lifted(target) : bool
+}
+
+class SharedState {
+  -lock : RLock
+  -snapshot : StateSnapshot
+  +snapshot() : StateSnapshot
+  +set_connected(connected)
+  +set_inference_time(ms)
+  +set_detections(objects)
+  +set_status(text)
+  +record_cycle(report)
+}
+
+interface ObjectSelector <<port>> {
+  +{abstract} select(objects, request)
+}
+
+class AllowedShapeSelector
+class ShapeRequestSelector
+class ColourRequestSelector
+class ConfidenceSelector
+class NearestToOriginSorter
+class CompositeSelector {
+  -selectors : List<ObjectSelector>
+  +select(objects, request)
+}
+
+AllowedShapeSelector ..|> ObjectSelector
+ShapeRequestSelector ..|> ObjectSelector
+ColourRequestSelector ..|> ObjectSelector
+ConfidenceSelector ..|> ObjectSelector
+NearestToOriginSorter ..|> ObjectSelector
+CompositeSelector ..|> ObjectSelector
+CompositeSelector o-- "1..*" ObjectSelector : chains
+
+CycleController --> CoordinateService
+CycleController --> ObjectSelector
+CycleController --> SharedState
+VisionPipeline ..> CoordinateService : "InferenceResult"
+
+note right of CompositeSelector
+  Composite pattern. A new rule is a new class
+  appended to the chain in the container;
+  CycleController is never edited.
+  Open for extension, closed for modification.
+end note
+
+note bottom of CycleController
+  The robot has no grip sensor, so the CAMERA
+  verifies: if an object of the same shape is
+  still within verify_tolerance_mm of the
+  commanded spot, the cup never lifted it and
+  the cycle retries.
+end note
+
+@enduml

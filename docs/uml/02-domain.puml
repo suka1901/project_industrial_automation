@@ -1,0 +1,181 @@
+@startuml INA700_domain
+' INA700 - domain layer
+' Author: Suraj Karki
+' Course: INA700 - AI-based pick and place
+'
+' Immutable value objects and the pure rules. This layer imports nothing
+' outside the standard library, which is why it can be unit tested with no
+' camera, no robot and no OpenCV.
+
+title INA700 - domain layer
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #444444
+skinparam class {
+  BorderColor #333333
+  BackgroundColor #F2F2EE
+  BackgroundColor<<enum>> #EAF2FB
+  BackgroundColor<<utility>> #FDF6E8
+}
+
+enum Shape <<enum>> {
+  CIRCLE
+  SQUARE
+  TRIANGLE
+  STAR
+  HEXAGON
+  --
+  +symmetry_period_deg : float {read only}
+  +symmetry_order : int {read only}
+  +is_rotationally_free : bool {read only}
+  +from_name(name) : Shape
+}
+
+enum Colour <<enum>> {
+  RED
+  GREEN
+  BLUE
+  UNKNOWN
+  --
+  +from_name(name) : Colour
+}
+
+enum CycleOutcome <<enum>> {
+  SUCCESS
+  FAILED
+  TIMEOUT
+}
+
+class PixelPoint <<frozen>> {
+  +u : float
+  +v : float
+}
+
+class BoundingBox <<frozen>> {
+  +u_min : float
+  +v_min : float
+  +u_max : float
+  +v_max : float
+  --
+  +centre : PixelPoint {read only}
+  +width : float {read only}
+  +height : float {read only}
+}
+
+class Frame <<frozen>> {
+  +image : Any
+  +sequence : int
+  +captured_at : float
+}
+
+class Detection <<frozen>> {
+  +shape : Shape
+  +colour : Colour
+  +confidence : float
+  +centre : PixelPoint
+  +angle_deg : float
+  +box : BoundingBox [0..1]
+}
+
+class OutlineMeasurement <<frozen>> {
+  +angle_deg : float
+  +centre : PixelPoint
+  +confidence : float
+}
+
+class WorldPose <<frozen>> {
+  +x : float
+  +y : float
+  +z : float
+  +rz : float
+}
+
+class DetectedObject <<frozen>> {
+  +detection : Detection
+  +pose : WorldPose
+  --
+  +shape : Shape {read only}
+  +colour : Colour {read only}
+}
+
+class InferenceResult <<frozen>> {
+  +detections : Sequence<Detection>
+  +elapsed_ms : float
+  +frame_sequence : int
+}
+
+class PickRequest <<frozen>> {
+  +shape : Shape [0..1]
+  +colour : Colour [0..1]
+}
+
+class CycleReport <<frozen>> {
+  +cycle_index : int
+  +request : PickRequest
+  +target : DetectedObject [0..1]
+  +outcome : CycleOutcome
+  +attempts : int
+  +message : str
+}
+
+class StateSnapshot <<frozen>> {
+  +connected : bool
+  +cycle_index : int
+  +inference_ms : float
+  +detections : Sequence<DetectedObject>
+  +last_report : CycleReport [0..1]
+  +status_text : str
+}
+
+class geometry <<utility>> {
+  +wrap_deg(angle, period) : float
+  +normalise_for_shape(angle, shape, slot) : float
+  +place_rotation_deg(object_angle, shape, slot) : float
+}
+
+class orientation <<utility>> {
+  +resample_radial(samples, bins) : list<float>
+  +harmonic_orientation(radii, order) : (float, float)
+}
+
+class marker <<utility>> {
+  +marker_world_corners(length, centre, angle, flipped) : list
+  +pixel_mm_ratio_from_perimeter(perimeter, length) : float
+}
+
+Detection *-- PixelPoint
+Detection o-- BoundingBox
+Detection --> Shape
+Detection --> Colour
+OutlineMeasurement *-- PixelPoint
+BoundingBox ..> PixelPoint
+DetectedObject *-- Detection
+DetectedObject *-- WorldPose
+InferenceResult o-- Detection
+PickRequest --> Shape
+PickRequest --> Colour
+CycleReport *-- PickRequest
+CycleReport o-- DetectedObject
+CycleReport --> CycleOutcome
+StateSnapshot o-- DetectedObject
+StateSnapshot o-- CycleReport
+
+geometry ..> Shape
+orientation ..> geometry
+
+note right of Shape
+  symmetry_order is the harmonic the
+  orientation estimator listens to:
+  star 5, square 4, triangle 3,
+  hexagon 6, circle 0 (no orientation).
+end note
+
+note bottom of geometry
+  place_rotation_deg returns the wrist turn
+  applied at PLACING, not the object's own
+  angle: a suction cup picks straight down.
+end note
+
+@enduml

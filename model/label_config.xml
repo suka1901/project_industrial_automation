@@ -1,0 +1,25 @@
+<!--
+  Label Studio labelling interface for the INA700 dataset.
+
+  The order of the Label elements IS the class order in the YOLO export, and it
+  must match detector.class_map in pi/config/config.yaml:
+      0: CIRCLE   1: SQUARE   2: STAR
+  Change one and you must change the other. split_dataset.py checks this.
+
+  Hexagon and triangle are absent on purpose. They stay unlabelled so the model
+  learns them as background and refuses to report them.
+
+  Author: Suraj Karki
+  Course: INA700 - AI-based pick and place
+-->
+<View>
+  <Header value="Box every circle, square and star. Leave hexagons and triangles alone."/>
+
+  <Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="false"/>
+
+  <RectangleLabels name="label" toName="image" strokeWidth="3">
+    <Label value="circle" background="#2E86DE" hotkey="1"/>
+    <Label value="square" background="#EE5253" hotkey="2"/>
+    <Label value="star"   background="#10AC84" hotkey="3"/>
+  </RectangleLabels>
+</View>

@@ -1,0 +1,18 @@
+# Core
+numpy>=1.24
+# MUST be the contrib build - cv2.aruco is NOT in plain opencv-python.
+opencv-contrib-python>=4.11
+PyYAML>=6.0
+
+# AI model (training on a PC, inference on the Pi)
+ultralytics>=8.3
+
+# Basler industrial camera
+pypylon>=3.0
+
+# Tkinter ships with Python. On Raspberry Pi OS install it with:
+#   sudo apt install python3-tk
+
+# Live preview in the dataset capture tool
+pillow>=10.0
+

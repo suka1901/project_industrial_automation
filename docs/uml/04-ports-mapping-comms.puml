@@ -1,0 +1,137 @@
+@startuml INA700_ports_mapping_comms
+' INA700 - coordinate, communication and UI ports
+' Author: Suraj Karki
+' Course: INA700 - AI-based pick and place
+
+title INA700 - coordinate, comms and UI ports
+
+' ObjectSelector and its rules are in 05-application.puml.
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 14
+skinparam ranksep 34
+skinparam ArrowColor #555555
+skinparam class {
+  BorderColor #333333
+  BackgroundColor #FDF6E8
+  BackgroundColor<<port>> #EAF2FB
+}
+
+interface SceneCalibrator <<port>> {
+  +{abstract} update(frame) : bool
+  +{abstract} is_ready : bool
+}
+interface CoordinateMapper <<port>> {
+  +{abstract} to_world_xy(point) : (float, float)
+  +{abstract} is_calibrated() : bool
+}
+interface RobotTransport <<port>> {
+  +{abstract} start()
+  +{abstract} send(message)
+  +{abstract} receive(timeout_s) : str [0..1]
+  +{abstract} close()
+  +{abstract} is_connected : bool
+}
+interface View <<port>> {
+  +{abstract} render(snapshot)
+  +{abstract} run()
+}
+
+class ArUco {
+  -dictionary_name : str
+  -marker_length_mm : float
+  +detect(img) : (corners, ids)
+  +draw(img, corners, ids)
+  +corners_for_id(corners, ids, id)
+  +pixel_mm_ratio(corners) : float
+}
+
+class ArucoCalibrator {
+  -marker_length_mm : float
+  -marker_centre_xy_mm : (float, float)
+  -marker_angle_deg : float
+  -y_axis_flipped : bool
+  -scale_tolerance : float
+  +update(frame) : bool
+  -_scale_is_plausible(matrix, scale) : bool
+}
+
+class MutableHomographyMapper {
+  -matrix : 3x3
+  -lock : RLock
+  +set_matrix(matrix, scale)
+  +scale_px_per_mm : float [0..1]
+  +to_world_xy(point) : (float, float)
+}
+class HomographyMapper {
+  +{static} fit(pixels, world) : (mapper, residual)
+  +{static} from_file(path) : HomographyMapper
+  +save(path, residual)
+  +to_world_xy(point) : (float, float)
+}
+class IdentityMapper {
+  -scale_mm_per_px : float
+}
+
+class TcpServerTransport {
+  -host : str
+  -port : int
+  -buffer : str
+  +start()
+  +send(message)
+  +receive(timeout_s) : str [0..1]
+}
+class LoopbackTransport {
+  -replies : List<str>
+}
+class MessageCodec {
+  +encode_pick(target) : str
+  +encode_quit() : str
+  +decode_reply(raw) : CycleOutcome
+  -_guard_length(message)
+}
+class RobotCommander {
+  -reply_timeout_s : float
+  +__call__(target) : CycleOutcome
+}
+
+class TkView {
+  -budget_ms : float
+  +render(snapshot)
+  +run()
+  -_handle_cycle_click()
+  -_tick()
+}
+
+ArucoCalibrator ..|> SceneCalibrator
+ArucoCalibrator *-- ArUco : detects with
+ArucoCalibrator --> MutableHomographyMapper : refreshes every frame
+
+MutableHomographyMapper ..|> CoordinateMapper
+HomographyMapper ..|> CoordinateMapper
+IdentityMapper ..|> CoordinateMapper
+
+TcpServerTransport ..|> RobotTransport
+LoopbackTransport ..|> RobotTransport
+RobotCommander --> RobotTransport
+RobotCommander *-- MessageCodec
+
+TkView ..|> View
+
+note bottom of ArUco
+  Carried forward from Exercise 2 with the same
+  responsibility. The calibrator USES it rather
+  than extending it: detecting a marker and
+  building a coordinate frame are two jobs.
+end note
+
+note bottom of MessageCodec
+  A RAPID string holds 80 characters.
+  _guard_length fails loudly here rather than
+  truncating silently on the robot.
+end note
+
+@enduml

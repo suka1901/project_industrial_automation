@@ -1,0 +1,110 @@
+@startuml INA700_ports_vision
+' INA700 - vision ports and their adapters
+' Author: Suraj Karki
+' Course: INA700 - AI-based pick and place
+
+title INA700 - vision ports and adapters
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 14
+skinparam ranksep 34
+skinparam ArrowColor #555555
+skinparam class {
+  BorderColor #333333
+  BackgroundColor #FDF6E8
+  BackgroundColor<<port>> #EAF2FB
+}
+
+interface FrameSource <<port>> {
+  +{abstract} open()
+  +{abstract} read() : Frame [0..1]
+  +{abstract} close()
+}
+interface ObjectDetector <<port>> {
+  +{abstract} detect(frame) : Sequence<Detection>
+  +{abstract} warm_up()
+}
+interface OrientationEstimator <<port>> {
+  +{abstract} measure(frame, detection) : OutlineMeasurement
+}
+interface ColourClassifier <<port>> {
+  +{abstract} classify(frame, detection) : Colour
+}
+
+class Camera {
+  -serial_number : str [0..1]
+  -exposure_us : float [0..1]
+  -show_window : bool
+  +open()
+  +read() : Frame [0..1]
+  +close()
+}
+class FileFrameSource {
+  -directory : Path
+  -loop : bool
+}
+class SyntheticFrameSource {
+  -fps : float
+}
+
+class YoloDetector {
+  -model_path : str
+  -class_map : Map<int, Shape>
+  -image_size : int
+  -confidence : float
+  +detect(frame) : Sequence<Detection>
+  +warm_up()
+  -_ensure_loaded()
+}
+class MockDetector {
+  -shapes : List<Shape>
+}
+
+class HarmonicOrientationEstimator {
+  -padding_px : int
+  -bins : int
+  -min_confidence : float
+  +measure(frame, detection) : OutlineMeasurement
+  -_mask(frame, detection)
+  -_largest_contour(frame, detection)
+  -_centroid(outline) : PixelPoint
+  -_radial_samples(outline, centre)
+}
+
+class HsvColourClassifier {
+  -hue_ranges : Map<Colour, ranges>
+  -min_saturation : int
+  -min_fraction : float
+  +classify(frame, detection) : Colour
+}
+class PassthroughColourClassifier {
+  +classify(frame, detection) : Colour
+}
+
+Camera ..|> FrameSource
+FileFrameSource ..|> FrameSource
+SyntheticFrameSource ..|> FrameSource
+YoloDetector ..|> ObjectDetector
+MockDetector ..|> ObjectDetector
+HarmonicOrientationEstimator ..|> OrientationEstimator
+HsvColourClassifier ..|> ColourClassifier
+PassthroughColourClassifier ..|> ColourClassifier
+
+note bottom of HarmonicOrientationEstimator
+  cv2.minAreaRect is not used: its angle is
+  unique only modulo 90 degrees, which suits a
+  square and no other shape. The maths lives in
+  domain/orientation.py and is tested on shapes
+  generated on paper.
+end note
+
+note bottom of MockDetector
+  Liskov substitution in practice: with these
+  stand-ins the whole system runs on a laptop
+  with no camera, no model and no robot.
+end note
+
+@enduml

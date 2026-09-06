@@ -1,0 +1,11 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+
+    // Analyse every file in the project, not only the ones open in a tab,
+    // so the Problems panel shows the whole picture at once.
+    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.extraPaths": ["pi"],
+    "python.analysis.exclude": ["**/__pycache__"]
+}

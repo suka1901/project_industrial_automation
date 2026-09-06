@@ -1,0 +1,19 @@
+23:21:26 INFO    [MainThread      ] main: Starting INA700 with profile 'mock', shapes ['CIRCLE', 'SQUARE', 'STAR']
+23:21:26 INFO    [capture         ] infrastructure.runtime: capture started
+23:21:26 INFO    [inference       ] infrastructure.runtime: inference started
+23:21:26 INFO    [connection      ] infrastructure.runtime: connection started
+23:21:26 INFO    [cycle           ] infrastructure.runtime: cycle started
+23:21:30 INFO    [connection      ] adapters.comms.loopback_transport: Loopback transport started (no real robot)
+23:21:43 INFO    [cycle           ] infrastructure.runtime: Cycle 1 finished: SUCCESS after 2 attempt(s) - placed successfully
+23:22:24 INFO    [connection      ] infrastructure.runtime: connection stopped
+23:22:24 INFO    [capture         ] infrastructure.runtime: capture stopped
+23:22:24 INFO    [inference       ] infrastructure.runtime: inference stopped
+23:22:24 INFO    [cycle           ] infrastructure.runtime: cycle stopped
+23:22:24 INFO    [MainThread      ] main: Shutdown complete
+09:14:05 INFO    [MainThread      ] main: Starting INA700 with profile 'mock', shapes ['CIRCLE', 'SQUARE', 'STAR']
+09:14:05 INFO    [capture         ] infrastructure.runtime: capture started
+09:14:05 INFO    [inference       ] infrastructure.runtime: inference started
+09:14:05 INFO    [connection      ] infrastructure.runtime: connection started
+09:14:05 INFO    [connection      ] adapters.comms.loopback_transport: Loopback transport started (no real robot)
+09:14:05 INFO    [cycle           ] infrastructure.runtime: cycle started
+09:14:31 INFO    [cycle           ] infrastructure.runtime: Cycle 1 finished: SUCCESS after 1 attempt(s) - placed successfully
