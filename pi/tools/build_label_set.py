@@ -22,7 +22,7 @@ import shutil
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Set, Tuple
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
@@ -37,6 +37,10 @@ log = logging.getLogger("build_label_set")
 # Share of the label set allowed to be images with no objects in them at all.
 # Ultralytics suggests roughly 10 percent; 15 leaves room without swamping it.
 NEGATIVE_FRACTION = 0.15
+
+# Photos deliberately left out, one stem per line, '#' for comments. Kept
+# beside the label set so a rebuild cannot quietly reinstate them.
+EXCLUDED_FILE = "excluded.txt"
 
 OUTPUT_WIDTH = 1280      # comfortably above the 640 the network trains at
 JPEG_QUALITY = 92        # visually lossless at this scale, about 40x smaller
@@ -62,6 +66,28 @@ def images_in(folder: Path) -> List[Path]:
     return sorted(folder.glob(f"*{IMAGE_SUFFIX}"))
 
 
+def already_labelled(label_dir: Path) -> Set[str]:
+    """Photos someone has annotated. These are pinned into the set.
+
+    The negative budget scales with the number of target photos, so re-running
+    with a different target count re-samples a *different* subset of negatives
+    - silently orphaning labels drawn against the old one.
+    """
+    labels = label_dir / "labels"
+    if not labels.is_dir():
+        return set()
+    return {path.stem for path in labels.glob("*.txt")}
+
+
+def excluded_stems(label_dir: Path) -> Set[str]:
+    """Photos to leave out, listed by whoever removed them."""
+    path = label_dir / EXCLUDED_FILE
+    if not path.is_file():
+        return set()
+    return {line.strip() for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")}
+
+
 def split_folders(raw: Path, assigned: Sequence[str]) -> Tuple[List[Path], List[Path]]:
     """Folders holding assigned shapes, and folders holding only forbidden ones."""
     targets, negatives = [], []
@@ -77,6 +103,8 @@ def sample_evenly(paths: Sequence[Path], wanted: int) -> List[Path]:
     Brightness moves in blocks between shooting sessions, so ordering by it and
     stepping through picks up every lighting condition present.
     """
+    if wanted <= 0:
+        return []
     if wanted >= len(paths):
         return list(paths)
     ordered = sorted(paths, key=sheet_brightness)
@@ -129,6 +157,8 @@ def main() -> int:
     parser.add_argument("--out", default=None, help="default model/dataset/label/images")
     parser.add_argument("--width", type=int, default=OUTPUT_WIDTH,
                         help="output width in pixels")
+    parser.add_argument("--rebuild", action="store_true",
+                        help="replace an existing label set that already has labels")
     args = parser.parse_args()
 
     configure_logging(level="INFO", log_file=None)
@@ -142,16 +172,38 @@ def main() -> int:
     raw = raw.resolve()
     out = Path(args.out) if args.out else (raw.parent / "label" / "images")
 
+    # Refuse to silently discard labelling work. The output folder is rebuilt
+    # from scratch, so a stray run would otherwise undo hand edits.
+    labels = out.parent / "labels"
+    if out.is_dir() and labels.is_dir() and any(labels.glob("*.txt")) and not args.rebuild:
+        log.error("%s already has %d label file(s). Rebuilding replaces every "
+                  "image. Pass --rebuild if that is really what you want.",
+                  labels, len(list(labels.glob("*.txt"))))
+        return 1
+
+    skip = excluded_stems(out.parent)
     target_folders, negative_folders = split_folders(raw, assigned)
-    targets = [p for folder in target_folders for p in images_in(folder)]
-    negatives = [p for folder in negative_folders for p in images_in(folder)]
+    targets = [p for folder in target_folders
+               for p in images_in(folder) if p.stem not in skip]
+    negatives = [p for folder in negative_folders
+                 for p in images_in(folder) if p.stem not in skip]
+    if skip:
+        print(f"excluding {len(skip)} photo(s) listed in {EXCLUDED_FILE}")
 
     if not targets:
         log.error("No images for %s under %s", assigned, raw)
         return 1
 
+    # Anything already annotated stays in, whatever the budget says.
+    pinned = already_labelled(out.parent)
+    must_keep = [p for p in negatives if p.stem in pinned]
+    candidates = [p for p in negatives if p.stem not in pinned]
+
     budget = negative_budget(len(targets))
-    kept_negatives = sample_evenly(negatives, budget)
+    kept_negatives = must_keep + sample_evenly(
+        candidates, max(0, budget - len(must_keep)))
+    if must_keep:
+        print(f"keeping {len(must_keep)} already-labelled negative(s)")
 
     chosen: List[Tuple[Path, bool]] = [(p, True) for p in targets]
     chosen += [(p, False) for p in kept_negatives]

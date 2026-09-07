@@ -359,6 +359,12 @@ Writes 1280 px JPEGs into `model/dataset/label/images/` with a hard-negative
 budget, and `manifest.csv` beside them. It downscales because the camera's
 frames are 6 MB each and the network trains at 640 anyway.
 
+**This rebuilds the folder from scratch, so it refuses to run once labels
+exist** — pass `--rebuild` if you really mean it. Even then, every photo that
+already has a label is kept, and `excluded.txt` lists photos deliberately left
+out so a rebuild cannot reinstate them. Labels and annotations are never
+touched, and neither is the model.
+
 ## 5.3 Label
 
 ```powershell
