@@ -17,7 +17,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
 MARKER_FRAMES = 15          # frames used for the stability estimate
-STABLE_PX_PER_MM = 0.02     # gate from CALIBRATION.md stage 3
+STABLE_PX_PER_MM = 0.02     # gate from STEPS.md 2.5
 SHEET_BRIGHT_MIN = 150      # 95th percentile grey the A3 sheet should reach
 SHEET_BRIGHT_MAX = 245      # above this the paper is clipping
 SATURATED_MAX_PCT = 0.1     # share of pixels allowed at 255

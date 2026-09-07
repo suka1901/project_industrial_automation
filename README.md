@@ -1,164 +1,284 @@
-# INA700 Final Project — AI-based Pick and Place
+# INA700 — AI-based pick and place
 
-Vision system on a Raspberry Pi 4 with a Basler camera that detects
-shapes, measures their position and orientation, converts pixels into the robot's
-work object coordinates and drives an ABB robot to pick each object and place it in
-its fixed slot.
+A Basler camera looks down at an A3 sheet. A trained YOLO model finds three
+assigned shapes on it, measures each one's position and orientation, converts
+pixels into the robot's work-object millimetres, and sends a picking command
+over TCP. An ABB robot picks with a vacuum cup and places each shape in its
+fixed slot.
 
-**Target grade: A** — Grade Level III functionality plus an object-oriented
-architecture following SOLID.
+Author: Suraj Karki
+Course: INA700 — AI-based pick and place, University West
+
+**Assigned shapes: circle, square, star.** Hexagon and triangle must never be
+detected or acted on.
+
+- **[STEPS.md](STEPS.md)** — every practical step, in order, from testing with
+  no hardware through to the full rehearsal. Start there.
 
 ---
 
-## Where things are
+## Layout
 
 ```
 INA700/
-├─ ARCHITECTURE.md       the design, the reasoning, the build order  <- read this first
-├─ STATUS.md             what is done, what is blocked, what is still a placeholder
-├─ LAB_PLAN.md          which order to do the lab work in, and the gate for each session
-├─ PROCEDURE.md          bench steps: calibrate, shoot, label, train
-├─ CALIBRATION.md        why each calibration gate exists
-├─ SUBMISSION.md         hand-in checklist
-├─ README.md             this file
-├─ pi/                   the Raspberry Pi application (Python)
-├─ robot/                RAPID modules for the ABB controller
-├─ model/                dataset and trained weights
-└─ docs/                 calibration notes, protocol spec
+├─ README.md              this file: what it is and why it is built this way
+├─ STEPS.md               how to run, test, calibrate, train and deploy
+├─ pi/                    the vision application (Python)
+├─ robot/                 RAPID modules for the ABB controller
+├─ model/                 trained weights, dataset, training notebook
+├─ docs/                  course material, UML diagrams, the untouched server file
+└─ ServerCommuncatio.sys  course-supplied, one line changed (see below)
 ```
 
 ## Running it right now, with no hardware
 
 ```bash
 cd pi
-python -m unittest discover -s tests -v     # 54 unit tests
-python smoke_test.py                        # full pipeline, mock adapters, headless
-python main.py                              # the same, with the GUI
+python -m unittest discover -s tests      # 68 tests
+python smoke_test.py --config config/config.mock.yaml
 ```
 
-The default profile in `config/config.yaml` uses a synthetic camera, a mock detector
-and a loopback robot, so the whole system runs on any laptop with Python and PyYAML.
-Everything the lab adds — the Basler camera, the trained model, the real robot — is
-a config change, not a code change.
+Full detail, including the tests that use the real trained model, is in
+[STEPS.md](STEPS.md).
 
-## Switching to the lab
+---
 
-In `config/config.yaml`:
+The UML class and sequence diagrams are `docs/uml/*.puml`, renderable with
+PlantUML.
 
-```yaml
-profile: lab
-camera:    { kind: basler }
-detector:  { kind: yolo, model_path: ../model/best_ncnn_model }
-colour:    { kind: hsv }
-coordinates: { mapper: aruco }
-robot:     { transport: tcp }
+## Design
+
+### Layers
+
+Dependencies point inward only. Nothing in `domain` knows that OpenCV, YOLO,
+Tkinter or sockets exist.
+
+```
+domain/          shapes, angles, the harmonic maths     no I/O, no libraries
+ports/           nine abstract interfaces                what the app needs
+application/     pipeline, selectors, cycle controller    policy
+adapters/        camera, YOLO, ArUco, colour, GUI, TCP    the outside world
+infrastructure/  Container, threads, logging              wiring
 ```
 
-## Configuring your three shapes
+`Container` reads `config.yaml` and builds everything. Swapping the mock
+detector for the trained model, or a file of photos for the camera, is a
+configuration edit — which is why the same code runs on the laptop and the Pi.
 
-When the instructor assigns them, edit one list:
+### Threads
 
-```yaml
-shapes: [CIRCLE, SQUARE, STAR]
-```
+Each thread owns one job, as the assignment requires.
 
-and the matching `detector.class_map`. No shape name is hard-coded in any logic, so
-nothing else changes.
-
-## Layout of `pi/`
-
-| Folder | Contains | Depends on |
-|---|---|---|
-| `domain/` | value objects, shape symmetry, angle maths | nothing (pure Python) |
-| `ports/` | the abstract interfaces | `domain` |
-| `application/` | vision pipeline, coordinates, cycle control, selectors | `domain`, `ports` |
-| `adapters/` | `Camera` (Basler), `ArUco`, YOLO, OpenCV, sockets, Tkinter | `domain`, `ports` |
-| `infrastructure/` | threads, logging, the composition root | everything |
-
-Dependencies point inwards only. `application/` never imports `adapters/` — concrete
-classes are chosen in `infrastructure/container.py` from the config file.
-
-## Threads
-
-| Thread | Responsibility |
+| Thread | Does |
 |---|---|
-| `capture` | grab frames from the camera, keep only the newest |
-| `inference` | AI model + orientation + colour, and time it |
-| `connection` | bring the robot link up, track its status |
-| `cycle` | run one pick-and-place cycle per operator request (yellow button starts the motion) |
-| main | Tkinter GUI (Tk must own the main thread) |
+| capture | pulls frames off the camera |
+| inference | ArUco calibration, model, orientation, colour — timed |
+| connection | accepts the robot and holds the socket |
+| cycle | runs a picking cycle when the operator asks |
+| main (Tk) | the GUI |
 
-They communicate only through bounded queues and one lock-guarded `SharedState`
-that hands the GUI immutable snapshots.
+Frames pass through bounded queues holding two items, so a slow consumer drops
+stale frames instead of growing a backlog. Shared state sits behind an `RLock`
+and hands out immutable snapshots, so the GUI can never read a half-written
+update.
 
-## Pi to robot protocol
+### Orientation is read from a harmonic, not a bounding rectangle
 
-A RAPID `string` holds **80 characters maximum**, so the protocol is short and
-fixed-field. A unit test proves every shape/colour combination stays under the limit.
+`cv2.minAreaRect` gives an angle unique only modulo 90°, which fits a square and
+nothing else. It also jumps on a star as the defining pair of points changes.
+
+Instead the outline becomes a radius-versus-direction signature, and the N-th
+harmonic is taken, where N is the shape's symmetry order — 5 for a star, 4 for a
+square, 3 for a triangle, 6 for a hexagon:
 
 ```
-server -> robot   move circle 123.45 -45.30 -12.5#
-server -> robot   quit#
-robot  -> server  DONE: circle#
-robot  -> server  ERROR: unknown shape 'blob'#
+Z = Σ r_k · exp(i · N · θ_k)          orientation = arg(Z) / N
 ```
 
-Words separated by spaces, `#` ends a message. Colour is **not** sent — the operator
-types `circle red`, but matching the colour is the server's job.
+Rotating the object by α multiplies Z by exp(i·N·α), so the phase *is* the
+orientation. Three things follow:
 
-Shape, X and Y are required. The objects are scattered on the board at random, so there
-is no taught position to fall back on and a command without coordinates is refused. The
-robot also refuses a position outside the A3 sheet (`PICK_AREA_*` in
-`StationData.mod`) — measure your board and set those before running.
+- The answer arrives already folded into ±180/N — the shape's own symmetry
+  period. A star comes out within ±36° with no separate folding step.
+- **|Z| is a free confidence measure.** A circle has no N-th harmonic, so the
+  magnitude collapses and the estimator reports *no rotation* rather than noise.
+- Because the model only has to *find* the object, training can rotate and flip
+  the images freely. A system that regressed the angle from the network could
+  not.
 
-The PC/Pi is the **server** on port `5000` — the working setup binds
-`192.168.125.201`. The robot (`192.168.125.3`, netmask `255.255.255.0`) dials out
-to it via `RobotAsClientConnect` in the course's `ServerCommuncatio.sys`.
+A weak angle is refused rather than guessed: `Detection` carries
+`angle_confidence`, and `OrientationConfidenceSelector` drops the object before
+it reaches the robot. `Shape.is_rotationally_free` exempts the circle. Measured
+on the held-out photos: above |Z| 0.10 the angle held to 1.5°; below 0.05 it was
+12° out. Skipping a pick is recoverable, seating a star 30° out is not.
 
-`ServerCommuncatio.sys` line 52 has been pointed at `192.168.125.201` — the only change
-made to that file, an address and not a line of logic. The original is preserved at
-`docs/ServerCommuncatio.sys.original`; `diff` the two to see it is a two-byte edit.
+### Colour is judged on the object, not the box
 
-**This line changes again when vision moves to the Raspberry Pi.** Re-upload the module
-to the controller after editing it, and re-check with `ping` before the run.
+A star fills barely a third of its bounding box, so anything averaged over the
+box measures paper. `adapters/detection/segmentation.py` provides the object
+mask, shared with the orientation estimator so there is one definition of "the
+object".
 
-## Calibration — ArUco marker
+White and black carry no hue, so a hue range can never name them. They are
+decided on brightness relative to the paper — fractions of its 95th percentile
+rather than fixed levels, so the answer survives the sheet ranging 67–162
+between shooting sessions.
 
-A 5x5 ArUco marker stays fixed on the table. Its four corners are detected every
-frame and give scale, origin and rotation together, so a nudged camera corrects
-itself instead of quietly picking in the wrong place.
+### Coordinates come from the marker, every frame
 
-```bash
-python calibration/aruco_check.py --length 100 --camera basler
+A 100 mm ArUco marker (DICT_5X5_100, ID 0) sits in view. Its four corners give a
+homography from pixels to work-object millimetres:
+
+```
+[x' y' w']ᵀ = H · [u v 1]ᵀ            x = x'/w'   y = y'/w'
 ```
 
-Confirms the marker is detected, shows its ID and the px/mm ratio, and reports the
-**jitter** over the last 60 frames. Above about 0.02 px/mm, fix focus and lighting
-before trusting any coordinate.
+Four corners rather than a scale factor, because a homography also absorbs the
+camera not being perfectly perpendicular. It is re-solved on every frame, so a
+nudged camera corrects itself instead of silently reporting stale positions.
 
-Set these once in `config.yaml` under `aruco:`. The supplied rubber marker is 100 mm,
-so only the position needs measuring — jog the robot to the marker centre, read X and
-Y in `wobj1`, and note its rotation:
+The marker must sit at **object-top height**: the camera sees the objects' top
+faces, and calibrating on the board instead puts every object outward by about
+`r·h/H`, worst at the corners.
 
-```yaml
-aruco:
-  marker_length_mm: 100.0
-  marker_centre_xy_mm: [<x>, <y>]
-  marker_angle_deg: 0.0
+### The vacuum cup decides where rotation happens
+
+A cup picks straight down and does not care how the object is turned. The wrist
+turn therefore belongs at **placing**, not picking:
+
+```
+rz = fold(slot_angle − object_angle)
 ```
 
-Mount the marker **level with the top of the objects**. The homography maps to the
-plane the marker sits in, and the camera sees the objects' top faces — calibrating on
-the board plane leaves a systematic outward error that grows toward the corners.
+### Division of labour
 
-`cv2.aruco` needs **opencv-contrib-python**. Plain `opencv-python` does not include
-it, despite what the course README's install line suggests.
+The Pi knows only `wobj1`, the picking sheet. The robot owns `wobj2` and the
+slots. The protocol carries shape, x, y and angle — never colour, which is a
+selection rule, not something the robot needs.
 
-A manual 4-point fallback (`calibration/calibrate_homography.py`) is also there if
-the marker is ever unavailable.
+```
+server → robot   move circle 123.45 -45.30 -12.5#      or   quit#
+robot  → server  DONE: circle#                          or   ERROR: ...#
+```
 
-## Before handing in
+`#` terminates a message so two replies in one TCP read stay separable, and the
+codec guards the 80-character limit RAPID imposes on `string`.
 
-Submit a single ZIP named exactly `FinalProject_StudentName.zip` containing the
-program files, the trained model and a Pack-and-Go of the robot station.
-**A submission that does not follow that pattern is failed with no resubmission.**
+### Robot side
+
+Two modules: `StationData.mod` for taught values, `MainModule.mod` for logic.
+Two work objects, five `robtarget`s plus approach and home, a yellow button to
+start each pick, vacuum on a digital output. The picking fence derives from one
+measured corner of the A3 sheet, so re-teaching `wobj1` costs two numbers rather
+than four.
+
+`ServerCommuncatio.sys` is course-supplied and contains **no student code**. The
+only edit is line 52, the PC address, `192.168.125.2` → `192.168.125.201`. The
+untouched original is at `docs/ServerCommuncatio.sys.original`; `diff` shows the
+single change.
+
+---
+
+## Requirements
+
+### Mandatory
+
+| Requirement | Where |
+|---|---|
+| Multithreading, one job per thread | `infrastructure/runtime.py` |
+| AI inference — shape, position, orientation | `YoloDetector` + `HarmonicOrientationEstimator` |
+| Coordinate translation pixel → work object | `adapters/mapping/`, ArUco homography |
+| Server communication Pi → robot | `TcpServerTransport`, `MessageCodec` |
+| GUI showing position and orientation | `adapters/gui/tk_view.py` |
+| Robot: client communication | `MainModule.mod` |
+| Robot: dynamic picking | `PickTargetFor` |
+| Robot: fixed-position placing | `placeTargets{5}` in `wobj2` |
+| Must not respond to the other two shapes | 3-class model — it cannot emit them — plus `AllowedShapeSelector` |
+
+### Grade Level III
+
+| Requirement | Where |
+|---|---|
+| Colour detection, pick only a specified colour | `ColourRequestSelector` |
+| Infinite cycles without restart | `CycleWorker` |
+| User input selects the object | GUI shape and colour dropdowns |
+| Retry up to two times | `max_attempts: 3` — first try plus two retries |
+| Inference under 3 s, time printed | printed every cycle; 118 ms measured on x86 |
+| Organised, named, commented | 65 modules, 68 tests, author header on each file |
+
+Grade A additionally asks for a well-designed architecture and OOP — the layers,
+ports and composition root above.
+
+---
+
+## Model
+
+Trained on 216 images, validated on 55 held out:
+
+| Class | Instances | P | R | mAP50 | mAP50-95 |
+|---|---|---|---|---|---|
+| all | 114 | 0.962 | 0.905 | 0.985 | **0.826** |
+| circle | 31 | 1.000 | 0.943 | 0.995 | 0.828 |
+| square | 32 | 1.000 | 0.792 | 0.983 | 0.819 |
+| star | 51 | 0.886 | 0.980 | 0.977 | 0.831 |
+
+Square misses about one in five; star over-fires about one in nine. Detection
+confidence is 0.6 rather than 0.5, because a forbidden shape reaching the robot
+is worse than a missed pick — the operator can simply ask again.
+
+Read `mAP50-95`, not `mAP50`: everything sits near 0.98 there, so it cannot
+discriminate. And the photos repeat heavily, so a stratified random split puts
+near-duplicates on both sides — 0.826 is honest but flattering. The number that
+settles it is agreement with the robot at bench step A7.
+
+Dataset: 345 photos, 271 labelled — 560 boxes and 43 empty hard negatives. The
+hexagon and triangle photos carry no labels at all, which is what teaches the
+model to stay quiet on them.
+
+---
+
+## Status
+
+| Phase | State |
+|---|---|
+| Architecture and code | Done — 65 modules, 68 tests green |
+| Robot programs | Done — proven on hardware for the minimal exercise |
+| Camera and marker calibration | Partly — the marker needs remounting |
+| Dataset and labelling | Done |
+| Training | Done |
+| Robot measurements | **Not started — the critical path** |
+| Pi deployment | Not started — the Pi is set up in the lab, not yet benchmarked |
+
+### Still placeholders
+
+| Value | File | Measured at |
+|---|---|---|
+| `marker_centre_xy_mm`, `marker_angle_deg` | `pi/config/config.yaml` | A6 |
+| `place_slot_angles_deg` | `pi/config/config.yaml` | A10 |
+| `y_axis_flipped`, `angle_sign` | `pi/config/config.yaml` | A8, A9 |
+| `verify_tolerance_mm` → 10–15 | `pi/config/config.yaml` | before the lab run |
+| `SHEET_ORIGIN_X`, `SHEET_ORIGIN_Y` | `robot/StationData.mod` | A11 |
+| `PICK_SURFACE_Z_MM` | `robot/StationData.mod` | A11 |
+
+Also switch `detector.kind` to `yolo`, `robot.transport` to `tcp`, or use
+`config.pi.yaml` which already has both.
+
+### Known risks
+
+**The marker is a printed paper sheet, wrinkled, lying where objects land.** It
+should be the 100 mm rubber one, shimmed, clear of the A3. Every robot-side
+number inherits it, so remount before booking robot time.
+
+**Lighting is uncontrolled.** Sheet brightness ranged 67–162 at fixed exposure.
+`preflight.py` reports it and gates on 180–210.
+
+**Square has the fewest photos** at 38, so its recall degrades first.
+
+---
+
+## Hand-in
+
+A single ZIP named exactly **`FinalProject_SurajKarki.zip`** containing the
+complete program files, the trained AI model, and a **Pack-and-Go** of the robot
+station from the examination. The Pack-and-Go can only be made in the lab — a
+missing one means the submission is not assessed.
