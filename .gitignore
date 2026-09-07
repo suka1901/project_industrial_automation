@@ -34,3 +34,4 @@ model/dataset/yolo_round*/
 model/ina700_model.zip
 model/dataset/label/predictions.json
 model/dataset/label/_todo*
+model/dataset/label/annotations/
