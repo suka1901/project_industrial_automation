@@ -63,3 +63,73 @@
 20:39:36 INFO    [cycle           ] infrastructure.runtime: cycle stopped
 20:39:36 INFO    [inference       ] infrastructure.runtime: inference stopped
 20:39:36 INFO    [MainThread      ] main: Shutdown complete
+20:50:17 INFO    [MainThread      ] main: Starting INA700 with profile 'offline', shapes ['CIRCLE', 'SQUARE', 'STAR']
+20:50:17 INFO    [capture         ] infrastructure.runtime: capture started
+20:50:17 INFO    [inference       ] infrastructure.runtime: inference started
+20:50:17 INFO    [connection      ] infrastructure.runtime: connection started
+20:50:17 INFO    [connection      ] adapters.comms.loopback_transport: Loopback transport started (no real robot)
+20:50:17 INFO    [cycle           ] infrastructure.runtime: cycle started
+20:50:17 INFO    [capture         ] adapters.camera.file_source: FileFrameSource loaded 55 image(s) from C:\Users\suraj\Desktop\INA700\model\dataset\yolo\val\images
+20:50:22 INFO    [inference       ] adapters.detection.yolo_detector: Loading YOLO model from C:\Users\suraj\Desktop\INA700\model\best.pt
+20:50:23 INFO    [inference       ] adapters.detection.yolo_detector: YOLO warm-up complete
+20:50:24 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.020); reporting no rotation rather than guessing
+20:50:25 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:26 INFO    [cycle           ] infrastructure.runtime: Cycle 1 finished: SUCCESS after 1 attempt(s) - placed successfully
+20:50:27 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:29 INFO    [cycle           ] infrastructure.runtime: Cycle 2 finished: FAILED after 3 attempt(s) - no object matched the request
+20:50:29 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:30 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:31 INFO    [cycle           ] infrastructure.runtime: Cycle 3 finished: SUCCESS after 2 attempt(s) - placed successfully
+20:50:31 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.020); reporting no rotation rather than guessing
+20:50:33 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:34 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:35 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:37 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:39 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:41 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.020); reporting no rotation rather than guessing
+20:50:42 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:44 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:45 INFO    [cycle           ] infrastructure.runtime: Cycle 4 finished: SUCCESS after 2 attempt(s) - placed successfully
+20:50:45 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.020); reporting no rotation rather than guessing
+20:50:48 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:50 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:52 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:53 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:55 INFO    [cycle           ] infrastructure.runtime: Cycle 5 finished: SUCCESS after 1 attempt(s) - placed successfully
+20:50:55 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:57 INFO    [cycle           ] infrastructure.runtime: Cycle 6 finished: SUCCESS after 1 attempt(s) - placed successfully
+20:50:57 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:50:59 INFO    [cycle           ] infrastructure.runtime: Cycle 7 finished: SUCCESS after 1 attempt(s) - placed successfully
+20:50:59 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:01 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:02 INFO    [cycle           ] infrastructure.runtime: Cycle 8 finished: SUCCESS after 1 attempt(s) - placed successfully
+20:51:02 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:04 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.020); reporting no rotation rather than guessing
+20:51:04 INFO    [cycle           ] infrastructure.runtime: Cycle 9 finished: SUCCESS after 1 attempt(s) - placed successfully
+20:51:06 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:07 INFO    [cycle           ] infrastructure.runtime: Cycle 10 finished: SUCCESS after 2 attempt(s) - placed successfully
+20:51:09 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:09 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.044); reporting no rotation rather than guessing
+20:51:13 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:14 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:14 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.044); reporting no rotation rather than guessing
+20:51:20 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:22 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:24 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:24 INFO    [cycle           ] infrastructure.runtime: Cycle 11 finished: SUCCESS after 2 attempt(s) - placed successfully
+20:51:26 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:28 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:29 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:34 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:35 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:37 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:37 INFO    [cycle           ] infrastructure.runtime: Cycle 12 finished: SUCCESS after 2 attempt(s) - placed successfully
+20:51:39 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:40 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:40 INFO    [cycle           ] infrastructure.runtime: Cycle 13 finished: SUCCESS after 2 attempt(s) - placed successfully
+20:51:42 WARNING [inference       ] adapters.detection.orientation_estimator: STAR shows no clear 5-fold structure (0.022); reporting no rotation rather than guessing
+20:51:45 INFO    [connection      ] infrastructure.runtime: connection stopped
+20:51:45 INFO    [capture         ] infrastructure.runtime: capture stopped
+20:51:45 INFO    [cycle           ] infrastructure.runtime: cycle stopped
+20:51:46 INFO    [inference       ] infrastructure.runtime: inference stopped
+20:51:46 INFO    [MainThread      ] main: Shutdown complete

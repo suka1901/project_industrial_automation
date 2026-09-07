@@ -131,9 +131,26 @@ orientation. Three things follow:
 
 A weak angle is refused rather than guessed: `Detection` carries
 `angle_confidence`, and `OrientationConfidenceSelector` drops the object before
-it reaches the robot. `Shape.is_rotationally_free` exempts the circle. Measured
-on the held-out photos: above |Z| 0.10 the angle held to 1.5°; below 0.05 it was
-12° out. Skipping a pick is recoverable, seating a star 30° out is not.
+it reaches the robot. `Shape.is_rotationally_free` exempts the circle.
+
+**Where the 0.10 gate comes from.** Every measurable object in the held-out set
+was measured, then the photo rotated by a known angle to see whether the
+reported angle followed:
+
+| \|Z\| | n | median error | worst | under 3° |
+|---|---|---|---|---|
+| 0.00–0.05 | 5 | 24.7° | 31.3° | 0/5 |
+| 0.05–0.10 | 1 | 30.9° | 30.9° | 0/1 |
+| 0.10–0.15 | 18 | 0.2° | 43.1° | 12/18 |
+| 0.15–0.25 | 40 | 0.4° | 44.1° | 34/40 |
+| 0.25–1.00 | 12 | 0.2° | 0.8° | 12/12 |
+
+Below 0.10 the angle is not merely uncertain, it is wrong by 25–31° — a quarter
+turn on a square. Above 0.25 it is exact. The gate is not a guess, and lowering
+it to skip fewer objects would place those objects a quarter turn out.
+
+Skipping is also per-frame, not per-object: a refused pick makes the cycle
+retry, and the retry measures a fresh frame.
 
 ### Colour is judged on the object, not the box
 

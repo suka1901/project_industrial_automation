@@ -520,6 +520,19 @@ Everything connected, on the Pi, exactly as at the exam.
 **Gate:** two cycles, six objects, at least five placed with the correct
 orientation — the Grade Level III criterion, met without intervention.
 
+### Placing the objects so the angle can be measured
+
+Two things make an outline unreadable, and both are avoidable at the bench:
+
+| Do | Why |
+|---|---|
+| Keep objects **well inside the sheet**, not near its edge | The dark table gets into the detection box and the thresholding merges object and table into one blob. Three of the six refusals on the held-out set were this |
+| Prefer **coloured objects over white** where you have the choice | A white object on white paper has no boundary to find; the mask latches onto internal shading and breaks into facets |
+| Light so the object casts a **visible shadow edge** | For a pale object that shadow is the only boundary there is |
+
+An object marked SKIP in the table is not lost — the cycle retries on a fresh
+frame. Persistent skipping of the same object means one of the above.
+
 ## Afterwards
 
 1. Re-shoot the underexposed photos — roughly half the set has the sheet at
