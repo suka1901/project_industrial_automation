@@ -10,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from adapters.gui.formatting import angle_confidence_text
 from application.shared_state import SharedState
 from domain.enums import Colour, Shape
 from domain.models import BoundingBox, Detection, PixelPoint
@@ -46,6 +47,31 @@ class TestPreview(unittest.TestCase):
 
     def test_no_preview_before_the_first_frame(self):
         self.assertIsNone(SharedState().snapshot().preview)
+
+
+class TestAngleConfidenceText(unittest.TestCase):
+    """The GUI must explain a skipped object rather than just omitting it."""
+
+    def _object(self, shape, angle_confidence):
+        from domain.models import DetectedObject, WorldPose
+        detection = Detection(shape=shape, colour=Colour.RED, confidence=0.9,
+                              centre=PixelPoint(0.0, 0.0), angle_deg=0.0,
+                              angle_confidence=angle_confidence)
+        return DetectedObject(detection=detection,
+                              pose=WorldPose(0.0, 0.0, 0.0, 0.0))
+
+    def test_a_circle_has_no_angle_to_report(self):
+        text = angle_confidence_text(self._object(Shape.CIRCLE, 0.0), gate=0.10)
+        self.assertEqual(text, "n/a")
+
+    def test_a_trusted_angle_shows_the_value_alone(self):
+        text = angle_confidence_text(self._object(Shape.STAR, 0.21), gate=0.10)
+        self.assertEqual(text, "0.210")
+
+    def test_an_untrusted_angle_says_it_will_be_skipped(self):
+        text = angle_confidence_text(self._object(Shape.STAR, 0.022), gate=0.10)
+        self.assertIn("SKIP", text)
+        self.assertIn("0.022", text)
 
 
 if __name__ == "__main__":

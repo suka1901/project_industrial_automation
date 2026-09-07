@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional, Sequence
 
+from adapters.gui.formatting import angle_confidence_text
 from domain.enums import Colour, Shape
 from domain.models import PickRequest, StateSnapshot
 from ports.interfaces import View
@@ -31,6 +32,7 @@ class TkView(View):
         snapshot_provider: Callable[[], StateSnapshot],
         refresh_ms: int = 100,
         budget_ms: float = 3000.0,
+        place_confidence_gate: float = 0.10,
         has_stopped: Optional[Callable[[], bool]] = None,
     ) -> None:
         self._allowed_shapes = list(allowed_shapes)
@@ -39,6 +41,9 @@ class TkView(View):
         self._snapshot_provider = snapshot_provider
         self._refresh_ms = refresh_ms
         self._budget_ms = budget_ms
+        # Below this the angle is not trusted and the object is not picked.
+        # Showing it explains why an object the camera clearly sees is skipped.
+        self._place_gate = place_confidence_gate
         # A worker that dies stops the whole application. Without this the
         # window stays up looking healthy and every cycle silently fails.
         self._has_stopped = has_stopped or (lambda: False)
@@ -95,11 +100,12 @@ class TkView(View):
         self._preview.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
         # Detection table: this is the "display position and orientation" part.
-        columns = ("shape", "colour", "conf", "x", "y", "rz")
+        columns = ("shape", "colour", "conf", "angle_conf", "x", "y", "rz")
         self._tree = ttk.Treeview(body, columns=columns,
                                   show="headings", height=10)
         headings = {
             "shape": "Shape", "colour": "Colour", "conf": "Conf.",
+            "angle_conf": "Angle |Z|",
             "x": "X (mm)", "y": "Y (mm)", "rz": "Rz (deg)",
         }
         for column in columns:
@@ -193,10 +199,13 @@ class TkView(View):
                 obj.shape.value,
                 obj.colour.value,
                 f"{obj.detection.confidence:.2f}",
+                angle_confidence_text(obj, self._place_gate),
                 f"{obj.pose.x:.1f}",
                 f"{obj.pose.y:.1f}",
                 f"{obj.pose.rz:.1f}",
             ))
+
+
 
     def _tick(self) -> None:
         """Timer callback: pull a snapshot and reschedule."""

@@ -105,6 +105,8 @@ def main() -> int:
         snapshot_provider=state.snapshot,
         refresh_ms=config.get("gui", {}).get("refresh_ms", 100),
         budget_ms=config["vision"].get("inference_budget_ms", 3000.0),
+        place_confidence_gate=config.get("orientation", {})
+                                    .get("min_place_confidence", 0.10),
         has_stopped=shutdown.is_set,
     )
 
