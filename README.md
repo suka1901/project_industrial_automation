@@ -204,7 +204,7 @@ single change.
 | User input selects the object | GUI shape and colour dropdowns |
 | Retry up to two times | `max_attempts: 3` — first try plus two retries |
 | Inference under 3 s, time printed | printed every cycle; 118 ms measured on x86 |
-| Organised, named, commented | 65 modules, 68 tests, author header on each file |
+| Organised, named, commented | 63 modules, 68 tests, author header on each file |
 
 Grade A additionally asks for a well-designed architecture and OOP — the layers,
 ports and composition root above.
@@ -241,7 +241,7 @@ model to stay quiet on them.
 
 | Phase | State |
 |---|---|
-| Architecture and code | Done — 65 modules, 68 tests green |
+| Architecture and code | Done — 63 modules, 68 tests green |
 | Robot programs | Done — proven on hardware for the minimal exercise |
 | Camera and marker calibration | Partly — the marker needs remounting |
 | Dataset and labelling | Done |

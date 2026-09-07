@@ -13,7 +13,7 @@ import unittest
 
 from domain.enums import Colour, CycleOutcome, Shape
 from domain.models import Detection, DetectedObject, PixelPoint, WorldPose
-from adapters.comms.message_codec import MessageCodec, ProtocolError, RAPID_MAX_STRING
+from adapters.comms.message_codec import MessageCodec, RAPID_MAX_STRING
 
 
 def make_object(shape=Shape.STAR, colour=Colour.RED,

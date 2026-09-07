@@ -61,7 +61,6 @@ aruco:
   scale_tolerance: 0.15
 coordinates:
   mapper: aruco
-  homography_file: calibration/homography.json
   pick_depth_mm: 0.0
   angle_sign: -1
   angle_offset_deg: 0.0

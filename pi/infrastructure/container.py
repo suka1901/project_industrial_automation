@@ -147,7 +147,6 @@ class Container:
         kind = section.get("mapper", "identity").lower()
 
         from adapters.mapping.homography_mapper import (
-            HomographyMapper,
             IdentityMapper,
             MutableHomographyMapper,
         )
@@ -155,10 +154,6 @@ class Container:
         if kind == "aruco":
             # Solved live from the marker fixed on the table.
             self._mapper = MutableHomographyMapper()
-        elif kind == "homography":
-            self._mapper = HomographyMapper.from_file(
-                self._path(section["homography_file"])
-            )
         else:
             self._mapper = IdentityMapper()
 

@@ -96,8 +96,7 @@ aruco:
 # computes a placing position, which is why reprogramming the placing jig needs
 # no change here at all.
 coordinates:
-  mapper: aruco          # identity | aruco | homography
-  homography_file: calibration/homography.json
+  mapper: aruco          # identity | aruco
   # Pick depth relative to the taught pick origin in wobjPick. 0 means "the
   # height the robtarget was taught at"; use this only to trim for thickness.
   pick_depth_mm: 0.0
