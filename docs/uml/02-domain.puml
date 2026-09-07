@@ -77,7 +77,16 @@ class Detection <<frozen>> {
   +centre : PixelPoint
   +angle_deg : float
   +box : BoundingBox [0..1]
+  +angle_confidence : float
 }
+note right of Detection
+  Two different confidences.
+  `confidence` is the detector's.
+  `angle_confidence` is |Z| from the
+  harmonic - how clearly the outline
+  showed its N-fold symmetry. A circle
+  is legitimately 0.
+end note
 
 class OutlineMeasurement <<frozen>> {
   +angle_deg : float

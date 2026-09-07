@@ -10,7 +10,6 @@ title INA700 - coordinate, comms and UI ports
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
 skinparam classAttributeIconSize 0
-skinparam linetype ortho
 skinparam nodesep 14
 skinparam ranksep 34
 skinparam ArrowColor #555555
@@ -59,17 +58,20 @@ class ArucoCalibrator {
   -_scale_is_plausible(matrix, scale) : bool
 }
 
+class "homography_mapper.project()" as project <<utility>> {
+  +project(matrix, point) : (float, float)
+}
+note right of project
+  One definition of the projection:
+  [x' y' w']T = H . [u v 1]T, then
+  x = x'/w', y = y'/w'.
+end note
+
 class MutableHomographyMapper {
   -matrix : 3x3
   -lock : RLock
   +set_matrix(matrix, scale)
   +scale_px_per_mm : float [0..1]
-  +to_world_xy(point) : (float, float)
-}
-class HomographyMapper {
-  +{static} fit(pixels, world) : (mapper, residual)
-  +{static} from_file(path) : HomographyMapper
-  +save(path, residual)
   +to_world_xy(point) : (float, float)
 }
 class IdentityMapper {
@@ -111,7 +113,7 @@ ArucoCalibrator *-- ArUco : detects with
 ArucoCalibrator --> MutableHomographyMapper : refreshes every frame
 
 MutableHomographyMapper ..|> CoordinateMapper
-HomographyMapper ..|> CoordinateMapper
+MutableHomographyMapper ..> project : projects with
 IdentityMapper ..|> CoordinateMapper
 
 TcpServerTransport ..|> RobotTransport
@@ -133,5 +135,15 @@ note bottom of MessageCodec
   _guard_length fails loudly here rather than
   truncating silently on the robot.
 end note
+
+' Stack the concrete classes so the diagram is not one wide strip.
+ArUco -[hidden]down- ArucoCalibrator
+ArucoCalibrator -[hidden]down- project
+project -[hidden]down- MutableHomographyMapper
+MutableHomographyMapper -[hidden]down- IdentityMapper
+TcpServerTransport -[hidden]down- LoopbackTransport
+LoopbackTransport -[hidden]down- MessageCodec
+MessageCodec -[hidden]down- RobotCommander
+RobotCommander -[hidden]down- TkView
 
 @enduml

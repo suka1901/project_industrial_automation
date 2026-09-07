@@ -58,6 +58,9 @@ class AllowedShapeSelector
 class ShapeRequestSelector
 class ColourRequestSelector
 class ConfidenceSelector
+class OrientationConfidenceSelector {
+  -minimum : float
+}
 class NearestToOriginSorter
 class CompositeSelector {
   -selectors : List<ObjectSelector>
@@ -68,6 +71,7 @@ AllowedShapeSelector ..|> ObjectSelector
 ShapeRequestSelector ..|> ObjectSelector
 ColourRequestSelector ..|> ObjectSelector
 ConfidenceSelector ..|> ObjectSelector
+OrientationConfidenceSelector ..|> ObjectSelector
 NearestToOriginSorter ..|> ObjectSelector
 CompositeSelector ..|> ObjectSelector
 CompositeSelector o-- "1..*" ObjectSelector : chains
@@ -76,6 +80,15 @@ CycleController --> CoordinateService
 CycleController --> ObjectSelector
 CycleController --> SharedState
 VisionPipeline ..> CoordinateService : "InferenceResult"
+
+note left of OrientationConfidenceSelector
+  Drops an object whose angle could not be
+  measured well enough to place on, rather
+  than letting the estimator's honest 0 be
+  mistaken for "sitting at zero degrees".
+  Shape.is_rotationally_free exempts the
+  circle, which has no angle to get wrong.
+end note
 
 note right of CompositeSelector
   Composite pattern. A new rule is a new class
@@ -91,5 +104,13 @@ note bottom of CycleController
   commanded spot, the cup never lifted it and
   the cycle retries.
 end note
+
+' Hidden edges stack the selector chain into a column; side by side they make
+' the diagram eight times wider than it is tall.
+AllowedShapeSelector -[hidden]down- ConfidenceSelector
+ConfidenceSelector -[hidden]down- OrientationConfidenceSelector
+OrientationConfidenceSelector -[hidden]down- ShapeRequestSelector
+ShapeRequestSelector -[hidden]down- ColourRequestSelector
+ColourRequestSelector -[hidden]down- NearestToOriginSorter
 
 @enduml

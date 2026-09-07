@@ -43,8 +43,20 @@ Full detail, including the tests that use the real trained model, is in
 
 ---
 
-The UML class and sequence diagrams are `docs/uml/*.puml`, renderable with
-PlantUML.
+The UML diagrams are `docs/uml/*.puml`:
+
+| File | Shows |
+|---|---|
+| `01-overview` | the layering, one adapter per port |
+| `02-domain` | the frozen value types and enums |
+| `03-ports-vision` | camera, detector, orientation, colour |
+| `04-ports-mapping-comms` | coordinates, ArUco, transports, GUI |
+| `05-application` | pipeline, cycle controller, the selector chain |
+| `06-runtime` | the threads and the queues between them |
+
+```bash
+plantuml -tpng docs/uml/*.puml
+```
 
 ## Design
 
