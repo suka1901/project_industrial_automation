@@ -6,7 +6,7 @@ still placeholders. Updated as work lands.
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
 
-**Last updated:** 6 September 2026
+**Last updated:** 7 September 2026
 
 ---
 
@@ -21,9 +21,9 @@ yet, and every number that needs the robot is still a placeholder.
 | Robot programs | **Done** — proven on hardware for the minimal exercise |
 | Camera and marker calibration (A1–A5) | **Done**, but the marker needs remounting |
 | Dataset capture (Part B) | **Done** — 345 photos |
-| Labelling (Part C) | **Not started** ← *this is the critical path* |
-| Training (Part D) | Blocked by labelling |
-| Robot measurements (A6–A11) | Not started — needs robot time |
+| Labelling (Part C) | **Done** — 271 images, 560 boxes, 43 hard negatives |
+| Training (Part D) | **Done** — mAP50-95 0.826 on 55 held-out images |
+| Robot measurements (A6–A11) | Not started — needs robot time ← *now the critical path* |
 | Integration and demo | Blocked by both of the above |
 
 ---
@@ -64,9 +64,25 @@ Camera found and fixed manually: Basler acA2440-75uc, exposure 3000 µs, gain 0.
 Marker detected in 15/15 frames at **3.638 px/mm, jitter 0.0010** — well inside
 the 0.02 gate. Field of view 673 × 563 mm.
 
+### Model
+
+Trained on 216 images, validated on 55 held out:
+
+| Class | Instances | P | R | mAP50 | mAP50-95 |
+|---|---|---|---|---|---|
+| all | 114 | 0.962 | 0.905 | 0.985 | **0.826** |
+| circle | 31 | 1.000 | 0.943 | 0.995 | 0.828 |
+| square | 32 | 1.000 | 0.792 | 0.983 | 0.819 |
+| star | 51 | 0.886 | 0.980 | 0.977 | 0.831 |
+
+Square misses about one in five; star over-fires about one in nine. Detection
+confidence sits at 0.6 rather than 0.5 because a forbidden shape reaching the
+robot is worse than a missed pick.
+
 ### Dataset
 
 345 photos: circle 74, square 38, star 54, hexagon 55, triangle 52, mixed 72.
+271 of them labelled: 560 boxes and 43 empty hard negatives.
 The 72 mixed scenes carry 6–8 objects each with all five shapes together, which
 is what teaches the model to ignore hexagon and triangle. Two lighting
 conditions are represented.

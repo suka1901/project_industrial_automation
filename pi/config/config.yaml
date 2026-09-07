@@ -30,12 +30,16 @@ camera:
   show_window: false     # true shows the raw feed while aiming
 
 detector:
-  kind: mock             # mock | yolo
+  kind: yolo             # mock | yolo
   model_path: ../model/best.pt      # or best_ncnn_model for the Pi
   # Must equal the imgsz the model was trained at (model/train_yolo.ipynb).
   # Objects are about 250 px in the 2448 px frame, so 640 keeps them at 65 px.
   image_size: 640
-  confidence: 0.5
+  # Measured on the 55-image validation set: star precision was 0.886 at 0.5,
+  # so roughly one star report in nine was a hexagon or triangle. Reporting a
+  # forbidden shape is worse than missing one - the operator can simply ask
+  # again. Raise this if a forbidden shape ever reaches the robot.
+  confidence: 0.6
   # Maps the model's class indices to shapes. Must match your data.yaml order.
   class_map:
     0: CIRCLE

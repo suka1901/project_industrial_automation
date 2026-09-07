@@ -36,3 +36,4 @@ model/dataset/label/predictions.json
 model/dataset/label/_todo*
 model/dataset/label/annotations/
 model/dataset/yolo_full.zip
+model/best_ncnn_model/
