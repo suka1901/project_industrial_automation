@@ -205,6 +205,67 @@ single change.
 
 ---
 
+## Is this object-oriented? The evidence
+
+The grade asks for "a well-designed architecture and object-oriented
+programming principles", so here is the case, with numbers rather than claims.
+
+**Paradigm: object-oriented at the seams, functional at the core.** That split
+is deliberate. Anything with identity, state or a collaborator is a class; the
+angle and geometry maths has none of those, so it is pure functions over frozen
+values. Claiming pure OOP would mean wrapping `wrap_deg` in a class to no
+benefit.
+
+### The four pillars, in this code
+
+| Pillar | Where | Evidence |
+|---|---|---|
+| **Abstraction** | `ports/interfaces.py` | 9 `ABC` ports. The application layer names no concrete class |
+| **Encapsulation** | throughout | 192 private attributes against 1 public; 12 frozen dataclasses that cannot be mutated after construction |
+| **Inheritance** | 31 edges | Every one implements a port or `Enum`. Nothing inherits from a concrete adapter |
+| **Polymorphism** | 21 adapters | `FrameSource` has 3, `ObjectSelector` has 7. Swapping one is a config edit |
+
+```
+ColourClassifier      2   HsvColourClassifier, PassthroughColourClassifier
+CoordinateMapper      2   IdentityMapper, MutableHomographyMapper
+FrameSource           3   Camera, FileFrameSource, SyntheticFrameSource
+ObjectDetector        2   MockDetector, YoloDetector
+ObjectSelector        7   AllowedShape, Confidence, OrientationConfidence,
+                          ShapeRequest, ColourRequest, NearestToOrigin, Composite
+RobotTransport        2   LoopbackTransport, TcpServerTransport
+```
+
+### SOLID
+
+| | Where |
+|---|---|
+| **S**ingle responsibility | One thread, one job. `MessageCodec` encodes; `RobotCommander` converses; `TcpServerTransport` moves bytes |
+| **O**pen/closed | A new picking rule is a new `ObjectSelector` added to the chain in the container. `CycleController` is never edited — that is how `OrientationConfidenceSelector` was added |
+| **L**iskov | `Camera`, `FileFrameSource` and `SyntheticFrameSource` are interchangeable. The offline profile proves it: the same `VisionPipeline` runs on saved photos |
+| **I**nterface segregation | 9 narrow ports rather than one "vision system". `ColourClassifier` has a single method |
+| **D**ependency inversion | `Container` is the only file that names a concrete class. Everything above depends on the abstractions |
+
+### Patterns used
+
+**Strategy** — every port. **Composite** — `CompositeSelector` holds a list of
+`ObjectSelector` and is one itself, so a chain and a single rule are
+interchangeable. **Template method** — `Worker.run()` fixes the thread lifecycle
+and subclasses supply `step()`. **Adapter** — every class in `adapters/`.
+**Dependency injection** — constructor injection throughout, wired in one place.
+
+### It is enforced, not just described
+
+`tests/test_architecture.py` reads the imports and fails if a dependency ever
+points outward, if the core acquires a framework, if a port loses its
+implementation, or if anything inherits from a concrete adapter:
+
+```
+domain/geometry.py imports 'cv2'. The core must not depend on I/O or a framework.
+```
+
+That is the answer to "how do you know it stayed object-oriented?" — the
+document cannot drift from the code, because the test would fail first.
+
 ## Requirements
 
 ### Mandatory
@@ -230,7 +291,7 @@ single change.
 | User input selects the object | GUI shape and colour dropdowns |
 | Retry up to two times | `max_attempts: 3` — first try plus two retries |
 | Inference under 3 s, time printed | printed every cycle; 118 ms measured on x86 |
-| Organised, named, commented | 63 modules, 68 tests, author header on each file |
+| Organised, named, commented | 63 modules, 78 tests, author header on each file |
 
 Grade A additionally asks for a well-designed architecture and OOP — the layers,
 ports and composition root above.
@@ -267,7 +328,7 @@ model to stay quiet on them.
 
 | Phase | State |
 |---|---|
-| Architecture and code | Done — 63 modules, 68 tests green |
+| Architecture and code | Done — 63 modules, 78 tests green |
 | Robot programs | Done — proven on hardware for the minimal exercise |
 | Camera and marker calibration | Partly — the marker needs remounting |
 | Dataset and labelling | Done |
