@@ -21,10 +21,10 @@ from typing import List
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
-import yaml  # noqa: E402
 
 from domain.models import Frame  # noqa: E402
 from infrastructure.container import Container  # noqa: E402
+from infrastructure.config_loader import load_config  # noqa: E402
 from infrastructure.logging_setup import configure_logging  # noqa: E402
 
 log = logging.getLogger("benchmark")
@@ -35,7 +35,7 @@ SAFE_FRACTION = 0.60        # leave headroom: the Pi is slower under load
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Time the pipeline against the budget")
-    parser.add_argument("--config", default="config/config.pi.yaml")
+    parser.add_argument("--config", default="config/profiles/pi.yaml")
     parser.add_argument("--images", default=None,
                         help="default model/dataset/yolo/val/images")
     parser.add_argument("--count", type=int, default=20)
@@ -44,7 +44,7 @@ def main() -> int:
     configure_logging(level="ERROR", log_file=None)
     import cv2
 
-    config = yaml.safe_load((BASE_DIR / args.config).read_text(encoding="utf-8"))
+    config = load_config(BASE_DIR / args.config)
     folder = Path(args.images) if args.images else \
         (BASE_DIR / ".." / "model" / "dataset" / "yolo" / "val" / "images").resolve()
     images = sorted(folder.glob("*.jpg"))[:args.count]

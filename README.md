@@ -35,7 +35,7 @@ INA700/
 ```bash
 cd pi
 python -m unittest discover -s tests      # 68 tests
-python smoke_test.py --config config/config.mock.yaml
+python smoke_test.py --config config/profiles/mock.yaml
 ```
 
 Full detail, including the tests that use the real trained model, is in
@@ -61,7 +61,21 @@ adapters/        camera, YOLO, ArUco, colour, GUI, TCP    the outside world
 infrastructure/  Container, threads, logging              wiring
 ```
 
-`Container` reads `config.yaml` and builds everything. Swapping the mock
+**One configuration, three overlays.** `config/config.yaml` is the lab profile
+and the only file holding measured values. `config/profiles/*.yaml` list only
+what they change — a dozen lines each — and `extends` pulls in the base:
+
+| Profile | Changes |
+|---|---|
+| `mock` | synthetic camera, mock detector, passthrough colour, loopback robot |
+| `offline` | saved photos, identity mapper, loopback robot |
+| `pi` | NCNN weights instead of PyTorch |
+
+Four full copies had already drifted — the mock said `exposure_us: 8000` where
+the lab said `3000` — and a value measured at the station would have had to be
+copied into three files by hand. Now there is one place to change.
+
+`Container` reads the merged configuration and builds everything. Swapping the mock
 detector for the trained model, or a file of photos for the camera, is a
 configuration edit — which is why the same code runs on the laptop and the Pi.
 
@@ -261,7 +275,7 @@ model to stay quiet on them.
 | `PICK_SURFACE_Z_MM` | `robot/StationData.mod` | A11 |
 
 Also switch `detector.kind` to `yolo`, `robot.transport` to `tcp`, or use
-`config.pi.yaml` which already has both.
+`profiles/pi.yaml` which already has both.
 
 ### Known risks
 

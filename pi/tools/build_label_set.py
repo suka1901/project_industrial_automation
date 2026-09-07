@@ -27,8 +27,7 @@ from typing import List, Sequence, Set, Tuple
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
-import yaml  # noqa: E402
-
+from infrastructure.config_loader import load_config  # noqa: E402
 from infrastructure.logging_setup import configure_logging  # noqa: E402
 from tools.capture_session import IMAGE_SUFFIX, MIXED  # noqa: E402
 
@@ -162,7 +161,7 @@ def main() -> int:
     args = parser.parse_args()
 
     configure_logging(level="INFO", log_file=None)
-    config = yaml.safe_load((BASE_DIR / args.config).read_text(encoding="utf-8"))
+    config = load_config(BASE_DIR / args.config)
     assigned = [name.lower() for name in config.get("shapes", [])]
     if not assigned:
         log.error("No shapes in %s - nothing to label", args.config)

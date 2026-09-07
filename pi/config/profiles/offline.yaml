@@ -1,0 +1,23 @@
+# The trained model against the held-out photos. No camera, no robot.
+#
+#   python smoke_test.py --config config/profiles/offline.yaml
+#   python tools/offline_check.py
+#
+# The identity mapper is used because most saved photos have no marker in
+# frame, so the ArUco mapping cannot run. Detector, orientation estimator and
+# colour classifier are the real ones.
+
+extends: ../config.yaml
+
+profile: offline
+
+camera:
+  kind: file
+  directory: ../model/dataset/yolo/val/images
+  loop: true
+
+coordinates:
+  mapper: identity
+
+robot:
+  transport: loopback

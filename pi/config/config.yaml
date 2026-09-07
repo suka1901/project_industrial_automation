@@ -119,7 +119,9 @@ coordinates:
     STAR: 0.0
 
 robot:
-  transport: loopback    # loopback | tcp
+  # This file IS the lab profile, so it expects a real robot. The mock and
+  # offline profiles override this to loopback.
+  transport: tcp         # loopback | tcp
   # Address of THIS machine - the one running the server. The robot dials out
   # to it. Verified working on the PC at .201; on the Raspberry Pi it will be
   # the Pi's own address, so check with ipconfig / ip addr before the exam.

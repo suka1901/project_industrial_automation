@@ -19,9 +19,8 @@ sys.path.insert(0, str(BASE_DIR))
 def marker_length_from_config(default: float = 100.0) -> float:
     """Marker size from config.yaml, so the tool runs with no arguments."""
     try:
-        import yaml
-        config = yaml.safe_load(
-            (BASE_DIR / "config" / "config.yaml").read_text(encoding="utf-8"))
+        from infrastructure.config_loader import load_config
+        config = load_config(BASE_DIR / "config" / "config.yaml")
         return float(config["aruco"]["marker_length_mm"])
     except Exception:
         return default

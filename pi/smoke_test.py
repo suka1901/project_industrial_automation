@@ -16,7 +16,6 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
-import yaml
 
 from domain.models import PickRequest
 from adapters.comms.message_codec import MessageCodec
@@ -24,6 +23,7 @@ from adapters.comms.robot_commander import RobotCommander
 from application.cycle_controller import CycleController
 from application.shared_state import SharedState
 from infrastructure.container import Container
+from infrastructure.config_loader import load_config  # noqa: E402
 from infrastructure.logging_setup import configure_logging
 from infrastructure.runtime import (
     CaptureWorker,
@@ -40,11 +40,11 @@ WARM_UP_TIMEOUT_S = 120.0   # a cold model on the Pi is slow to load
 def main() -> int:
     parser = argparse.ArgumentParser(description="Headless end-to-end run, no hardware")
     parser.add_argument("--config", default="config/config.yaml",
-                        help="profile to run; config/config.offline.yaml uses "
+                        help="profile to run; config/profiles/offline.yaml uses "
                              "the trained model against saved photos")
     args = parser.parse_args()
 
-    config = yaml.safe_load((BASE_DIR / args.config).read_text(encoding="utf-8"))
+    config = load_config(BASE_DIR / args.config)
     print(f"profile: {args.config}")
     configure_logging(level="INFO", log_file=None)
 
@@ -83,7 +83,7 @@ def main() -> int:
 
     if shutdown.is_set():
         print("\nA worker thread died - see the traceback above. "
-              "Wrong profile for this machine? config/config.offline.yaml "
+              "Wrong profile for this machine? config/profiles/offline.yaml "
               "runs from saved photos and needs no camera.")
         supervisor.stop_all()
         return 1

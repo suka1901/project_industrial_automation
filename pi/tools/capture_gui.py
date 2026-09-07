@@ -18,10 +18,10 @@ from typing import Any, Optional
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
-import yaml  # noqa: E402
 
 from domain.enums import Shape  # noqa: E402
 from domain.models import Frame  # noqa: E402
+from infrastructure.config_loader import load_config  # noqa: E402
 from infrastructure.logging_setup import configure_logging  # noqa: E402
 from ports.interfaces import FrameSource  # noqa: E402
 from tools.capture_session import MIXED, CaptureSession  # noqa: E402
@@ -242,7 +242,7 @@ def main() -> int:
     args = parser.parse_args()
 
     configure_logging(level="INFO", log_file=None)
-    config = yaml.safe_load((BASE_DIR / args.config).read_text(encoding="utf-8"))
+    config = load_config(BASE_DIR / args.config)
 
     # Every shape, not just the three assigned ones: the two you must ignore
     # still belong in the photos as unlabelled hard negatives. MIXED holds the

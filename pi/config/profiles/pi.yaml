@@ -1,0 +1,15 @@
+# The Raspberry Pi at the station.
+#
+#   python3 tools/benchmark.py --config config/profiles/pi.yaml   <- run first
+#   python3 main.py --config config/profiles/pi.yaml
+#
+# NCNN rather than the .pt: roughly 2-3x faster on ARM. Its input size is fixed
+# when NCNN is exported, so changing image_size here alone does nothing.
+# robot.host must be THIS Pi's address on the robot network (set in config.yaml).
+
+extends: ../config.yaml
+
+profile: pi
+
+detector:
+  model_path: ../model/best_ncnn_model

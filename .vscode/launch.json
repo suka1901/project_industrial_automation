@@ -57,7 +57,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/pi/smoke_test.py",
-            "args": ["--config", "config/config.mock.yaml"],
+            "args": ["--config", "config/profiles/mock.yaml"],
             "cwd": "${workspaceFolder}/pi",
             "console": "integratedTerminal",
             "justMyCode": true
@@ -67,7 +67,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/pi/smoke_test.py",
-            "args": ["--config", "config/config.offline.yaml"],
+            "args": ["--config", "config/profiles/offline.yaml"],
             "cwd": "${workspaceFolder}/pi",
             "console": "integratedTerminal",
             "justMyCode": true

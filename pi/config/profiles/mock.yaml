@@ -1,0 +1,25 @@
+# Everything synthetic: no camera, no model, no robot, no ultralytics.
+# The only profile that runs on a machine with nothing installed.
+#
+#   python smoke_test.py --config config/profiles/mock.yaml
+
+extends: ../config.yaml
+
+profile: mock
+
+camera:
+  kind: synthetic
+
+detector:
+  kind: mock
+
+colour:
+  # The mock detector already assigns a colour; there is no real image to
+  # measure, so keep what it decided rather than reading a blank frame.
+  kind: passthrough
+
+coordinates:
+  mapper: identity
+
+robot:
+  transport: loopback

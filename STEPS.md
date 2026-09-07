@@ -84,7 +84,7 @@ Judge detection quality with §1.5, not with two cycles of a replay.
 
 | Problem | Fix |
 |---|---|
-| `capture crashed: No device is available` | You ran the **lab** profile. Add `--config config/config.offline.yaml` — the default expects a camera |
+| `capture crashed: No device is available` | You ran the **lab** profile. Add `--config config/profiles/offline.yaml` — the default expects a camera |
 | `No module named ultralytics` | `pip install ultralytics` |
 | `FileNotFoundError: ../model/best.pt` | Unpack the trained model into `model/` |
 | FAILED, 0 detections | Still loading — the wait is capped at 120 s |
@@ -123,7 +123,7 @@ angle confidence |Z|, gate at 0.1:
 | Many below the gate | Outlines too weak — light, focus or glare |
 | `recall` falling | Lower `detector.confidence`, accepting more spurious reports |
 
-`config/config.offline.yaml` differs from the lab profile in exactly three ways:
+`config/profiles/offline.yaml` differs from the lab profile in exactly three ways:
 photos instead of a camera, the identity mapper because most saved photos have
 no marker in frame, and a loopback robot that always answers DONE. The detector,
 orientation estimator and colour classifier are the real ones.
@@ -295,7 +295,7 @@ The Pi is set up in the lab, so this is a normal deployment.
 
 ```bash
 cd INA700/pi
-python3 tools/benchmark.py --config config/config.pi.yaml
+python3 tools/benchmark.py --config config/profiles/pi.yaml
 ```
 
 **No camera, no robot** — saved photos only. Two minutes, and it answers the one
@@ -319,7 +319,7 @@ start-up. **Re-run this after every retrain.**
 ## 4.2 Camera
 
 ```bash
-python3 tools/preflight.py --config config/config.pi.yaml
+python3 tools/preflight.py --config config/profiles/pi.yaml
 ```
 
 | Problem | Fix |
@@ -330,11 +330,11 @@ python3 tools/preflight.py --config config/config.pi.yaml
 
 ## 4.3 Network and run
 
-Set `robot.host` in `config/config.pi.yaml` to the Pi's own address on the robot
+Set `robot.host` in `config/profiles/pi.yaml` to the Pi's own address on the robot
 network, and confirm the robot reaches it.
 
 ```bash
-python3 main.py --config config/config.pi.yaml
+python3 main.py --config config/profiles/pi.yaml
 ```
 
 The GUI needs a display — the station monitor, or VNC.
@@ -492,7 +492,7 @@ Robot needed. Steps 3.3, 3.4, 3.5.
 
 Everything connected, on the Pi, exactly as at the exam.
 
-- `config.pi.yaml`, `verify_tolerance_mm` 10–15
+- `profiles/pi.yaml`, `verify_tolerance_mm` 10–15
 - Six objects on the sheet, hexagons and triangles among them
 - Two complete cycles, all three shapes each, chosen by operator input
 - Inference time printed each cycle, under 3 s

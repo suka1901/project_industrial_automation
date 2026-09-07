@@ -25,6 +25,7 @@ from adapters.gui.tk_view import TkView  # noqa: E402
 from application.cycle_controller import CycleController  # noqa: E402
 from application.shared_state import SharedState  # noqa: E402
 from infrastructure.container import Container  # noqa: E402
+from infrastructure.config_loader import load_config
 from infrastructure.logging_setup import configure_logging  # noqa: E402
 from infrastructure.runtime import (  # noqa: E402
     CaptureWorker,
@@ -36,12 +37,6 @@ from infrastructure.runtime import (  # noqa: E402
 )
 
 log = logging.getLogger("main")
-
-
-def load_config(path: Path) -> dict:
-    """Read the YAML configuration file."""
-    with path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle)
 
 
 def main() -> int:

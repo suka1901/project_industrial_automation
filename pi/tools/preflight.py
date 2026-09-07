@@ -164,8 +164,8 @@ def report_camera_settings(camera: Any) -> None:
 
 def check_config() -> None:
     try:
-        import yaml
-        config = yaml.safe_load((BASE_DIR / "config" / "config.yaml").read_text(encoding="utf-8"))
+        from infrastructure.config_loader import load_config
+        config = load_config(BASE_DIR / "config" / "config.yaml")
     except Exception as exc:
         record("config.yaml", FAIL, str(exc))
         return

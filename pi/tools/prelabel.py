@@ -21,8 +21,7 @@ from typing import Any, Dict, List
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
-import yaml  # noqa: E402
-
+from infrastructure.config_loader import load_config  # noqa: E402
 from infrastructure.logging_setup import configure_logging  # noqa: E402
 
 log = logging.getLogger("prelabel")
@@ -92,7 +91,7 @@ def main() -> int:
     args = parser.parse_args()
 
     configure_logging(level="INFO", log_file=None)
-    config = yaml.safe_load((BASE_DIR / args.config).read_text(encoding="utf-8"))
+    config = load_config(BASE_DIR / args.config)
     detector = config.get("detector", {})
     class_map = detector.get("class_map", {})
     names = [str(class_map[index]).lower() for index in sorted(class_map)]

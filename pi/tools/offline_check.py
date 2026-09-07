@@ -21,10 +21,10 @@ from typing import Dict, List
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
-import yaml  # noqa: E402
 
 from domain.models import Frame  # noqa: E402
 from infrastructure.container import Container  # noqa: E402
+from infrastructure.config_loader import load_config  # noqa: E402
 from infrastructure.logging_setup import configure_logging  # noqa: E402
 
 log = logging.getLogger("offline_check")
@@ -44,7 +44,7 @@ def ground_truth(label: Path, names: Dict[int, str]) -> collections.Counter:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run the pipeline over held-out photos and score it")
-    parser.add_argument("--config", default="config/config.offline.yaml")
+    parser.add_argument("--config", default="config/profiles/offline.yaml")
     parser.add_argument("--split", default=None,
                         help="default model/dataset/yolo/val")
     args = parser.parse_args()
@@ -52,7 +52,7 @@ def main() -> int:
     configure_logging(level="ERROR", log_file=None)
     import cv2
 
-    config = yaml.safe_load((BASE_DIR / args.config).read_text(encoding="utf-8"))
+    config = load_config(BASE_DIR / args.config)
     class_map = config.get("detector", {}).get("class_map", {})
     names = {index: str(class_map[index]).upper() for index in sorted(class_map)}
 
