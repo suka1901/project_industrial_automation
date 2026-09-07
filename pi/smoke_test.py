@@ -6,6 +6,7 @@ Course: INA700 - AI-based pick and place
 
 from __future__ import annotations
 
+import argparse
 import queue
 import sys
 import threading
@@ -37,7 +38,14 @@ WARM_UP_TIMEOUT_S = 120.0   # a cold model on the Pi is slow to load
 
 
 def main() -> int:
-    config = yaml.safe_load((BASE_DIR / "config/config.yaml").read_text(encoding="utf-8"))
+    parser = argparse.ArgumentParser(description="Headless end-to-end run, no hardware")
+    parser.add_argument("--config", default="config/config.yaml",
+                        help="profile to run; config/config.offline.yaml uses "
+                             "the trained model against saved photos")
+    args = parser.parse_args()
+
+    config = yaml.safe_load((BASE_DIR / args.config).read_text(encoding="utf-8"))
+    print(f"profile: {args.config}")
     configure_logging(level="INFO", log_file=None)
 
     container = Container(config, BASE_DIR)

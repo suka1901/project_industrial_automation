@@ -1,0 +1,86 @@
+# Offline profile: the trained model against saved photos, no hardware.
+#
+#   cd pi
+#   python smoke_test.py --config config/config.offline.yaml
+#   python tools/offline_check.py
+#
+# Differences from config.yaml, and why:
+#   camera.kind file      - replays the held-out validation photos
+#   coordinates.mapper    - identity, because most of those photos have no
+#                           marker in frame, so the ArUco mapping cannot run
+#   robot.transport       - loopback, which always answers DONE
+#
+# Everything else is the real lab configuration, so this exercises the actual
+# detector, orientation estimator and colour classifier.
+profile: offline
+shapes:
+- CIRCLE
+- SQUARE
+- STAR
+camera:
+  kind: file
+  directory: ../model/dataset/yolo/val/images
+  loop: true
+  fps: 10.0
+  show_window: false
+detector:
+  kind: yolo
+  model_path: ../model/best.pt
+  image_size: 640
+  confidence: 0.6
+  class_map:
+    0: CIRCLE
+    1: SQUARE
+    2: STAR
+orientation:
+  padding_px: 8
+  binary_threshold: 0
+  bins: 180
+  min_confidence: 0.05
+  min_place_confidence: 0.1
+colour:
+  kind: hsv
+  min_saturation: 80
+  min_value: 50
+  min_fraction: 0.25
+  achromatic_max_saturation: 70
+  white_of_paper: 0.8
+  black_of_paper: 0.45
+aruco:
+  dictionary: DICT_5X5_100
+  marker_id: 0
+  marker_length_mm: 100.0
+  marker_centre_xy_mm:
+  - 0.0
+  - 0.0
+  marker_angle_deg: 0.0
+  y_axis_flipped: false
+  redetect_every_n_frames: 1
+  hold_last_good: true
+  scale_tolerance: 0.15
+coordinates:
+  mapper: identity
+  homography_file: calibration/homography.json
+  pick_depth_mm: 0.0
+  angle_sign: -1
+  angle_offset_deg: 0.0
+  place_slot_angles_deg:
+    CIRCLE: 0.0
+    SQUARE: 0.0
+    STAR: 0.0
+robot:
+  transport: loopback
+  host: 192.168.125.201
+  port: 5000
+  accept_timeout_s: 120.0
+  reply_timeout_s: 300.0
+  max_attempts: 3
+  verify_tolerance_mm: 0.0
+vision:
+  inference_budget_ms: 3000.0
+  min_confidence: 0.5
+gui:
+  refresh_ms: 100
+logging:
+  level: INFO
+  file: logs/ina700.log

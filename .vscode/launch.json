@@ -53,11 +53,30 @@
             "justMyCode": true
         },
         {
-            "name": "6 - Smoke test (offline, no hardware)",
+            "name": "6 - Smoke test (mock, no model)",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/pi/smoke_test.py",
             "args": ["--config", "config/config.mock.yaml"],
+            "cwd": "${workspaceFolder}/pi",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "7 - Smoke test (trained model, saved photos)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/pi/smoke_test.py",
+            "args": ["--config", "config/config.offline.yaml"],
+            "cwd": "${workspaceFolder}/pi",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "8 - Offline check (whole pipeline vs labels)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/pi/tools/offline_check.py",
             "cwd": "${workspaceFolder}/pi",
             "console": "integratedTerminal",
             "justMyCode": true

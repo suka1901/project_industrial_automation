@@ -517,6 +517,80 @@ python smoke_test.py
 
 ---
 
+# Part E — Testing without hardware
+
+Everything here runs from saved photos. No camera, no robot.
+
+## E1. Check the interpreter
+
+VS Code's status bar must say **opencv_env**, and that environment needs
+Ultralytics:
+
+```powershell
+conda activate opencv_env
+pip install ultralytics
+```
+
+## E2. Two cycles end to end
+
+**Run and Debug → `7 - Smoke test (trained model, saved photos)`**
+
+**Expect:** two cycles reporting SUCCESS, and the messages that went to the
+robot, each well under the 80-character RAPID limit.
+
+```
+cycle 1: SUCCESS in 1 attempt(s) -> CIRCLE GREEN x=355.6 y=228.2 rz=0.0
+  move circle 355.56 228.16 0.0#   (30 chars, RAPID limit 80)
+```
+
+The first inference takes **20-30 seconds** while the model loads, then settles
+near 120 ms. That cold start is real: on the day, start the system well before
+you need it.
+
+| Problem | Fix |
+|---|---|
+| `No module named ultralytics` | Wrong interpreter, or E1 not done |
+| `FileNotFoundError: ../model/best.pt` | Unpack `ina700_model.zip` into `model/` |
+| Cycles FAILED, 0 detections | The model is still loading — the wait is capped at 120 s |
+| `Frame directory not found` | Run `tools/split_dataset.py` first |
+
+## E3. Score the whole pipeline against the labels
+
+**Run and Debug → `8 - Offline check (whole pipeline vs labels)`**
+
+This is the one worth reading. Ultralytics only judges the detector; this judges
+what the robot is actually told — shape, colour, and whether the angle was
+measured well enough to place on.
+
+**Expect**, on the current model and validation split:
+
+```
+objects   matched 99   missed 15   spurious 2   of 114 labelled
+recall 0.868   precision 0.980
+whole photo exactly right: 41/55
+
+colour: {GREEN 9, WHITE 29, BLACK 18, BLUE 30, RED 15}
+
+angle confidence |Z|, gate at 0.1:
+  CIRCLE  n= 25  median 0.000  (no orientation to measure)
+  SQUARE  n= 23  median 0.145  below gate: 1
+  STAR    n= 53  median 0.210  below gate: 5
+```
+
+| What to watch | Why |
+|---|---|
+| Any `UNKNOWN` colour | Every object should get a name. UNKNOWN means the colour thresholds need work |
+| `spurious` climbing | The model is reporting shapes that are not there — raise `detector.confidence` |
+| Many below the gate | Outlines are too weak to measure. Usually light, focus or glare |
+| `recall` falling | Lower `detector.confidence`, at the cost of more spurious reports |
+
+Both use `config/config.offline.yaml`, which differs from the lab profile in
+exactly three ways: photos instead of a camera, the identity mapper because most
+saved photos have no marker in frame, and a loopback robot that always answers
+DONE. The detector, orientation estimator and colour classifier are the real ones.
+
+---
+
 ## Order of work when the robot is only free for one session
 
 1. A1–A5 first, without the robot.
