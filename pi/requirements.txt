@@ -7,6 +7,10 @@ PyYAML>=6.0
 # AI model (training on a PC, inference on the Pi)
 ultralytics>=8.3
 
+# Runtime for the NCNN export, which is what the Pi runs. Not needed on a
+# laptop using best.pt, but the pi profile will not start without it.
+ncnn>=1.0
+
 # Basler industrial camera
 pypylon>=3.0
 

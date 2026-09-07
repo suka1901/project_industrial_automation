@@ -326,6 +326,7 @@ python3 tools/preflight.py --config config/profiles/pi.yaml
 |---|---|
 | `no Basler camera detected` | USB3 port and cable — the Pi's USB2 ports will not carry this camera |
 | `pypylon not installed` | Pylon SDK for **ARM64**, then the pypylon wheel |
+| `No module named 'ncnn'` | `pip install ncnn` — the Pi profile needs it, a laptop using `best.pt` does not |
 | `tkinter` fails | `sudo apt install python3-tk` |
 
 ## 4.3 Network and run
