@@ -11,6 +11,7 @@ import math
 from typing import Any, List, Optional, Tuple
 
 from domain.models import Detection, Frame, OutlineMeasurement, PixelPoint
+from adapters.detection.segmentation import object_mask
 from domain.orientation import harmonic_orientation, resample_radial
 from ports.interfaces import OrientationEstimator
 
@@ -78,8 +79,6 @@ class HarmonicOrientationEstimator(OrientationEstimator):
 
     def _mask(self, frame: Frame, detection: Detection) -> Optional[Tuple[Any, int, int]]:
         """Binary mask of the object, plus the crop's origin in the full image."""
-        import cv2
-
         assert detection.box is not None
         height, width = frame.image.shape[:2]
         u_min = max(0, int(detection.box.u_min) - self._padding)
@@ -91,19 +90,7 @@ class HarmonicOrientationEstimator(OrientationEstimator):
         if crop.size == 0:
             return None
 
-        grey = cv2.GaussianBlur(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY), (5, 5), 0)
-
-        if self._threshold > 0:
-            _, mask = cv2.threshold(grey, self._threshold, 255, cv2.THRESH_BINARY)
-        else:
-            _, mask = cv2.threshold(grey, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        # Objects may be lighter or darker than the board; take the polarity
-        # that fills the middle of the crop.
-        if mask[mask.shape[0] // 2, mask.shape[1] // 2] == 0:
-            mask = cv2.bitwise_not(mask)
-
-        return mask, u_min, v_min
+        return object_mask(crop, self._threshold), u_min, v_min
 
     def _largest_contour(self, frame: Frame, detection: Detection):
         """The object's outline, in full-image coordinates."""

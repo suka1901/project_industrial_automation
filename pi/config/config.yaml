@@ -63,6 +63,12 @@ colour:
   min_saturation: 80
   min_value: 50
   min_fraction: 0.25
+  # White and black have no hue, so they are judged on brightness against the
+  # paper instead. Fractions of the paper's own level, so they hold as the
+  # lighting moves.
+  achromatic_max_saturation: 70
+  white_of_paper: 0.80
+  black_of_paper: 0.45
 
 # --- ArUco reference marker (README requirement) ----------------------------
 # A 5x5 marker is fixed on the table. Its four corners give the pixel-to-

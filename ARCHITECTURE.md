@@ -193,7 +193,20 @@ reaches the robot. `Shape.is_rotationally_free` exempts the circle, whose angle 
 meaningless by definition. Skipping a pick is recoverable; seating a star 30° out
 is not.
 
-**Colour (R8):** HSV masking inside the box, in its own class, so a colour threshold
+**Colour (R8):** hue voting over the object's own pixels, in its own class.
+
+Two things this gets right that the obvious version does not. It classifies the
+**object, not the box** — a star fills barely a third of its bounding box, so a
+median over the box measures paper, and every black star came out white until
+this was fixed. `adapters/detection/segmentation.py` provides the mask, shared
+with the orientation estimator so there is one definition of "the object".
+
+And white and black carry **no hue at all**, so they cannot be named by a hue
+range. They are decided on brightness relative to the paper — fractions of its
+95th percentile rather than fixed levels, so the answer survives the sheet
+ranging 67-162 across shooting sessions.
+
+The older version: HSV masking inside the box, in its own class, so a colour threshold
 can never break shape detection.
 
 ---

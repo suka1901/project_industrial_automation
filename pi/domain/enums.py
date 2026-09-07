@@ -55,6 +55,10 @@ class Colour(Enum):
     RED = "RED"
     GREEN = "GREEN"
     BLUE = "BLUE"
+    # Achromatic. These have no hue at all, so they are decided by brightness
+    # against the paper rather than by a hue range.
+    WHITE = "WHITE"
+    BLACK = "BLACK"
     UNKNOWN = "UNKNOWN"
 
     @classmethod

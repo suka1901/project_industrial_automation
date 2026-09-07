@@ -33,6 +33,9 @@ from infrastructure.runtime import (
 )
 
 
+WARM_UP_TIMEOUT_S = 120.0   # a cold model on the Pi is slow to load
+
+
 def main() -> int:
     config = yaml.safe_load((BASE_DIR / "config/config.yaml").read_text(encoding="utf-8"))
     configure_logging(level="INFO", log_file=None)
@@ -62,7 +65,13 @@ def main() -> int:
         verify_tolerance_mm=container.verify_tolerance_mm,
     )
 
-    time.sleep(1.0)  # let the first frames flow through
+    # Wait for the first inference rather than sleeping a fixed time: loading
+    # and warming a real model takes seconds, and far longer on the Pi.
+    deadline = time.monotonic() + WARM_UP_TIMEOUT_S
+    while time.monotonic() < deadline and state.snapshot().inference_ms <= 0.0:
+        time.sleep(0.2)
+    if state.snapshot().inference_ms <= 0.0:
+        print(f"NO inference within {WARM_UP_TIMEOUT_S:.0f} s - is the model loading?")
 
     print("\n--- running two cycles ---")
     for _ in range(2):
