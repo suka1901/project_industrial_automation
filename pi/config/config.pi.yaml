@@ -1,0 +1,87 @@
+# Raspberry Pi profile. The only differences from config.yaml are the three
+# lines below; everything else is identical, which is the point.
+#
+#   python tools/benchmark.py --config config/config.pi.yaml     <- run this FIRST
+#   python main.py --config config/config.pi.yaml
+#
+#   detector.model_path   NCNN, not the .pt - roughly 2-3x faster on ARM.
+#                         The input size is fixed when NCNN is exported, so
+#                         changing image_size here alone does nothing; re-export.
+#   robot.transport       tcp - the Pi is the server the robot connects to.
+#   robot.host            must be THIS Pi's address on the robot network.
+profile: pi
+shapes:
+- CIRCLE
+- SQUARE
+- STAR
+camera:
+  kind: basler
+  fps: 10.0
+  directory: ../model/dataset/samples
+  loop: true
+  serial_number: null
+  exposure_us: 3000
+  gain: 0.0
+  timeout_ms: 5000
+  show_window: false
+detector:
+  kind: yolo
+  model_path: ../model/best_ncnn_model
+  image_size: 640
+  confidence: 0.6
+  class_map:
+    0: CIRCLE
+    1: SQUARE
+    2: STAR
+orientation:
+  padding_px: 8
+  binary_threshold: 0
+  bins: 180
+  min_confidence: 0.05
+  min_place_confidence: 0.1
+colour:
+  kind: hsv
+  min_saturation: 80
+  min_value: 50
+  min_fraction: 0.25
+  achromatic_max_saturation: 70
+  white_of_paper: 0.8
+  black_of_paper: 0.45
+aruco:
+  dictionary: DICT_5X5_100
+  marker_id: 0
+  marker_length_mm: 100.0
+  marker_centre_xy_mm:
+  - 0.0
+  - 0.0
+  marker_angle_deg: 0.0
+  y_axis_flipped: false
+  redetect_every_n_frames: 1
+  hold_last_good: true
+  scale_tolerance: 0.15
+coordinates:
+  mapper: aruco
+  homography_file: calibration/homography.json
+  pick_depth_mm: 0.0
+  angle_sign: -1
+  angle_offset_deg: 0.0
+  place_slot_angles_deg:
+    CIRCLE: 0.0
+    SQUARE: 0.0
+    STAR: 0.0
+robot:
+  transport: tcp
+  host: 192.168.125.201
+  port: 5000
+  accept_timeout_s: 120.0
+  reply_timeout_s: 300.0
+  max_attempts: 3
+  verify_tolerance_mm: 0.0
+vision:
+  inference_budget_ms: 3000.0
+  min_confidence: 0.5
+gui:
+  refresh_ms: 100
+logging:
+  level: INFO
+  file: logs/ina700.log
