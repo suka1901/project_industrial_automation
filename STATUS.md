@@ -8,6 +8,10 @@ Course: INA700 - AI-based pick and place
 
 **Last updated:** 7 September 2026
 
+Lab access is open and the exam is two months away, so no step needs to be
+rushed or carried forward unverified. `LAB_PLAN.md` has the order and the
+gate that ends each session.
+
 ---
 
 ## Summary
@@ -24,6 +28,7 @@ yet, and every number that needs the robot is still a placeholder.
 | Labelling (Part C) | **Done** — 271 images, 560 boxes, 43 hard negatives |
 | Training (Part D) | **Done** — mAP50-95 0.826 on 55 held-out images |
 | Robot measurements (A6–A11) | Not started — needs robot time ← *now the critical path* |
+| Pi deployment (Part F) | Not started — the Pi is set up in the lab, benchmark not yet run |
 | Integration and demo | Blocked by both of the above |
 
 ---

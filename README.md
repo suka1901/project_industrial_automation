@@ -16,6 +16,7 @@ architecture following SOLID.
 INA700/
 ├─ ARCHITECTURE.md       the design, the reasoning, the build order  <- read this first
 ├─ STATUS.md             what is done, what is blocked, what is still a placeholder
+├─ LAB_PLAN.md          which order to do the lab work in, and the gate for each session
 ├─ PROCEDURE.md          bench steps: calibrate, shoot, label, train
 ├─ CALIBRATION.md        why each calibration gate exists
 ├─ SUBMISSION.md         hand-in checklist

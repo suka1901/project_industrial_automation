@@ -591,38 +591,21 @@ DONE. The detector, orientation estimator and colour classifier are the real one
 
 ---
 
-# Part F — Deploying to the Raspberry Pi
+# Part F — Running on the Raspberry Pi
 
-The Pi is only available in the lab, inside the three-hour window. That makes
-this the riskiest hour of the project, so almost all of it is preparation done
-beforehand.
+The Pi lives in the lab and is already set up. That makes this a normal
+deployment rather than an emergency, so it can be done early and repeated
+whenever the model changes.
 
-## F1. Prepare the USB stick — do this at home, days before
-
-**Do not rely on lab internet.** Put all of this on a stick:
-
-| Item | Where from |
-|---|---|
-| The whole `INA700` folder | including `model/best_ncnn_model/` |
-| **Pylon SDK for ARM64** | Basler's site — the `aarch64` build, matching Pi OS |
-| `pypylon` wheel for ARM64 | `pip download pypylon` on the Pi is a gamble; carry it |
-| `python3-tk`, `python3-pip` .deb files | if the lab Pi has no network at all |
-
-Anything downloaded in the exam room is time you do not have.
-
-## F2. On the Pi — benchmark before anything else
-
-Copy the folder across, then:
+## F1. Benchmark before anything else
 
 ```bash
 cd INA700/pi
 python3 tools/benchmark.py --config config/config.pi.yaml
 ```
 
-This needs **no camera and no robot** — only the saved photos. It answers the
-one question that can sink the demo, in about two minutes.
-
-**Expect** something like:
+Needs **no camera and no robot** - only the saved photos. It answers the one
+question that can sink the demo, in about two minutes.
 
 ```
 model load and warm-up: 18.4 s
@@ -632,57 +615,57 @@ PASS - worst case is under 1800 ms, comfortably inside budget
 
 | Result | Do |
 |---|---|
-| PASS | Carry on to F3 |
-| TIGHT | Fine for the demo; note it and move on |
+| PASS | Carry on |
+| TIGHT | Usable, but re-export at 480 for headroom when convenient |
 | FAIL | Re-export NCNN at 480 in Colab. The input size is fixed **at export**, so editing `image_size` alone changes nothing |
 
-Note the warm-up figure. The system is genuinely unavailable for that long at
-start-up — start it well before the examiner is watching.
+Note the warm-up figure and write it down. The system is genuinely unavailable
+for that long at start-up, so start it before the examiner is watching.
 
-## F3. Camera
+Re-run this after **every** retrain. It is two minutes and it is the difference
+between knowing and hoping.
+
+## F2. Camera
 
 ```bash
 python3 tools/preflight.py --config config/config.pi.yaml
 ```
 
-**Expect** the same checks that passed on your laptop: camera found, exposure and
-gain as configured, marker detected, lighting inside range.
+Same checks that pass on the laptop: camera found, exposure and gain as set,
+marker detected, lighting in range.
 
 | Problem | Fix |
 |---|---|
-| `pypylon not installed` | Install the ARM SDK from the stick first, then the wheel |
-| `no Basler camera detected` | USB3 port and cable; the Pi's USB2 ports will not do |
+| `no Basler camera detected` | USB3 port and cable - the Pi's USB2 ports will not carry this camera |
+| `pypylon not installed` | Pylon SDK for **ARM64**, then the pypylon wheel |
 | `tkinter` fails | `sudo apt install python3-tk` |
 
-## F4. Network
+## F3. Network
 
-The Pi takes the address the PC used, `192.168.125.201`. Set `robot.host` in
-`config/config.pi.yaml` to whatever the Pi actually has, and confirm the robot
-can reach it before starting the cycle.
+The Pi takes the address the PC used. Set `robot.host` in `config/config.pi.yaml`
+to the Pi's own address on the robot network, and confirm the robot reaches it
+before starting a cycle.
 
-## F5. Run
+## F4. Run
 
 ```bash
 python3 main.py --config config/config.pi.yaml
 ```
 
-The GUI needs a display — the station monitor, or VNC.
+The GUI needs a display - the station monitor, or VNC.
 
-## F6. The fallback, and when to take it
+## F5. The fallback
 
-**Give yourself a deadline: if the Pi is not running the benchmark cleanly
-within 45 minutes, stop and move the vision to the PC.**
+If the Pi ever fails on the day, the same code runs on the laptop:
 
 ```powershell
 python main.py --config config/config.yaml
 ```
 
-Nothing about the architecture changes — the Pi and the PC run identical code
-and differ only in `model_path` and `transport`, which is exactly the point of
-putting them in configuration. Say so if asked. A working demonstration on the
-PC scores far better than a Pi you are still fighting when time runs out.
-
-Bring both. Decide by the clock, not by optimism.
+Nothing about the architecture changes. The two profiles differ only in
+`model_path` and `transport`, which is the whole argument for putting them in
+configuration rather than in code. Keep the laptop configured and tested so the
+option stays real.
 
 ---
 

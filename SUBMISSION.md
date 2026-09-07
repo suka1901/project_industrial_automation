@@ -26,17 +26,6 @@ python tools/preflight.py --length <measured mm>
 python -m unittest discover -s tests
 ```
 
-## Exam-day USB stick
-
-Prepare before you travel — the lab Pi is the biggest untested assumption left,
-and nothing on this list can be downloaded in the exam room.
-
-- [ ] The whole `INA700` folder, including `model/best_ncnn_model/`
-- [ ] Pylon SDK for **ARM64** (aarch64), matching the Pi OS version
-- [ ] `pypylon` wheel for ARM64
-- [ ] `python3-tk` and `python3-pip` .deb files, in case the Pi has no network
-- [ ] This laptop, configured and working, as the fallback (PROCEDURE.md F6)
-
 ## Still open
 
 | Item | Where |
