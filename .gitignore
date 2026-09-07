@@ -25,3 +25,12 @@ venv/
 *.swp
 Thumbs.db
 desktop.ini
+
+# Round-by-round training sets, rebuilt by split_dataset.py
+model/dataset/_round*/
+model/dataset/yolo_round*/
+
+# Model weights and pre-annotation scratch
+model/ina700_model.zip
+model/dataset/label/predictions.json
+model/dataset/label/_todo*

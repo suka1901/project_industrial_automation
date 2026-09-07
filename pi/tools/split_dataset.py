@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from itertools import combinations
 import random
 import shutil
 import sys
@@ -35,6 +36,7 @@ IMAGE_SUFFIXES = (".jpg", ".png")
 VALIDATION_FRACTION = 0.2
 SPLIT_SEED = 1              # fixed, so a re-run reproduces the same split
 BRIGHTNESS_BANDS = 3        # val must span the lighting conditions, not one
+DUPLICATE_IOU = 0.80        # above this, one object has been boxed twice
 
 
 @dataclass(frozen=True)
@@ -70,6 +72,7 @@ def parse_label(path: Path, class_count: int) -> Tuple[Tuple[int, ...], List[str
 
     class_ids: List[int] = []
     problems: List[str] = []
+    boxes: List[List[float]] = []
 
     for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         row = raw.split()
@@ -94,7 +97,9 @@ def parse_label(path: Path, class_count: int) -> Tuple[Tuple[int, ...], List[str
             problems.append(f"{path.name}:{number}: zero-sized box")
             continue
         class_ids.append(class_id)
+        boxes.append(values)
 
+    problems.extend(duplicate_boxes(path.name, boxes))
     return tuple(class_ids), problems
 
 
@@ -116,6 +121,27 @@ def collect(images_dir: Path, labels_dir: Path,
     orphans = {p.stem for p in labels_dir.glob("*.txt")} - {s.image.stem for s in samples}
     problems.extend(f"{stem}.txt: no matching image" for stem in sorted(orphans))
     return samples, problems
+
+
+def _iou(a: Sequence[float], b: Sequence[float]) -> float:
+    """Intersection over union of two YOLO boxes (cx, cy, w, h)."""
+    corners = [(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2) for cx, cy, w, h in (a, b)]
+    (ax0, ay0, ax1, ay1), (bx0, by0, bx1, by1) = corners
+    overlap = (max(0.0, min(ax1, bx1) - max(ax0, bx0))
+               * max(0.0, min(ay1, by1) - max(ay0, by0)))
+    union = a[2] * a[3] + b[2] * b[3] - overlap
+    return overlap / union if union > 0 else 0.0
+
+
+def duplicate_boxes(name: str, boxes: Sequence[Sequence[float]]) -> List[str]:
+    """Pairs overlapping so heavily they must be one object boxed twice.
+
+    A double-drag in the labelling tool leaves two boxes on one object. YOLO
+    then trains on it as though it were two, and nothing downstream complains.
+    """
+    return [f"{name}: boxes {i + 1} and {j + 1} overlap at IoU {_iou(boxes[i], boxes[j]):.2f}"
+            for i, j in combinations(range(len(boxes)), 2)
+            if _iou(boxes[i], boxes[j]) > DUPLICATE_IOU]
 
 
 def check_exported_class_order(label_dir: Path, names: Sequence[str]) -> List[str]:
