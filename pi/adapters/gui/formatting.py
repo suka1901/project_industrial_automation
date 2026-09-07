@@ -12,7 +12,9 @@ from __future__ import annotations
 from domain.models import DetectedObject
 
 NO_ANGLE = "n/a"
-NOT_TRUSTED_MARK = "  NO ANGLE"
+# Short enough not to be truncated in the table column, and unambiguous when
+# it is. "NO ANGLE" clipped to "NO AN" reads as nothing at all.
+NOT_TRUSTED_MARK = "  WEAK"
 
 
 def angle_confidence_text(obj: DetectedObject, gate: float) -> str:
@@ -37,6 +39,7 @@ def untrusted_angle_warning(objects) -> str:
     doubtful = [o.shape.value for o in objects if not o.angle_trusted]
     if not doubtful:
         return ""
-    return ("ANGLE NOT MEASURED: " + ", ".join(sorted(doubtful))
-            + "  -  placed unrotated. Move it away from the sheet edge, "
-              "or use a coloured object.")
+    shapes = ", ".join(sorted(doubtful))
+    return (f"WEAK ANGLE  -  {shapes}  will be placed UNROTATED. "
+            "Move it further onto the sheet, or swap for a coloured one, "
+            "then start the cycle.")

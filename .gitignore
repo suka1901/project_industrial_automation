@@ -37,3 +37,6 @@ model/dataset/label/_todo*
 model/dataset/label/annotations/
 model/dataset/yolo_full.zip
 model/best_ncnn_model/
+
+# Run-time log, rewritten on every run.
+pi/logs/*.log

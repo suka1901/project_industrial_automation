@@ -10,7 +10,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from adapters.gui.formatting import angle_confidence_text, untrusted_angle_warning
+from adapters.gui.formatting import (NOT_TRUSTED_MARK, angle_confidence_text,
+                                      untrusted_angle_warning)
 from application.shared_state import SharedState
 from domain.enums import Colour, Shape
 from domain.models import BoundingBox, Detection, PixelPoint
@@ -70,10 +71,16 @@ class TestAngleConfidenceText(unittest.TestCase):
         self.assertEqual(text, "0.210")
 
     def test_an_untrusted_angle_is_marked(self):
+        # Assert against the constant, not a literal: the marker is deliberately
+        # short because the table column truncates anything longer.
         text = angle_confidence_text(
             self._object(Shape.STAR, 0.022, trusted=False), gate=0.10)
-        self.assertIn("NO ANGLE", text)
+        self.assertIn(NOT_TRUSTED_MARK.strip(), text)
         self.assertIn("0.022", text)
+
+    def test_the_marker_is_short_enough_for_the_column(self):
+        """A clipped marker reads as nothing, so guard the length here."""
+        self.assertLessEqual(len(NOT_TRUSTED_MARK.strip()), 6)
 
 
 class TestUntrustedAngleWarning(unittest.TestCase):
@@ -97,7 +104,7 @@ class TestUntrustedAngleWarning(unittest.TestCase):
         warning = untrusted_angle_warning(objects)
         self.assertIn("STAR", warning)
         self.assertNotIn("SQUARE", warning)
-        self.assertIn("unrotated", warning)
+        self.assertIn("UNROTATED", warning.upper())
 
     def test_silent_with_nothing_on_the_board(self):
         self.assertEqual(untrusted_angle_warning([]), "")

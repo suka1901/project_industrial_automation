@@ -52,6 +52,10 @@ class TkView(View):
         # one is held here. `_shown_sequence` avoids rescaling an unchanged frame.
         self._photo = None
         self._shown_sequence = -1
+        # Drives the flashing warning. A static banner is easy to look past
+        # when the operator is watching the robot rather than the screen.
+        self._flash_on = False
+        self._ticks = 0
 
         self._root = tk.Tk()
         self._root.title("INA700 - AI Pick and Place")
@@ -110,7 +114,10 @@ class TkView(View):
         }
         for column in columns:
             self._tree.heading(column, text=headings[column])
-            self._tree.column(column, width=88, anchor="center")
+            # The angle column carries a value plus a warning word, so it
+            # needs room; a truncated warning is worse than none.
+            width = 150 if column == "angle_conf" else 86
+            self._tree.column(column, width=width, anchor="center")
         self._tree.pack(side="right", fill="y")
 
         # A banner rather than a line in the status bar: an object placed
@@ -215,17 +222,35 @@ class TkView(View):
 
 
 
+    FLASH_EVERY_TICKS = 4        # about twice a second at the default refresh
+    FLASH_COLOURS = (("#FFE08A", "#7A1F1F"),      # amber on dark red text
+                     ("#C62828", "#FFFFFF"))      # red on white
+
     def _show_warning(self, text: str) -> None:
-        """Show the banner only while there is something to warn about."""
-        if text:
-            self._warning_label.config(text=text)
-            if not self._warning_label.winfo_ismapped():
-                self._warning_label.pack(fill="x", side="bottom", before=self._status_label)
-        elif self._warning_label.winfo_ismapped():
-            self._warning_label.pack_forget()
+        """Show a flashing banner while something needs moving.
+
+        Flashing rather than static: during a demo the operator is watching the
+        robot, and this has to be caught before the cycle starts, not after the
+        object has been placed unrotated.
+        """
+        if not text:
+            if self._warning_label.winfo_ismapped():
+                self._warning_label.pack_forget()
+            return
+
+        self._warning_label.config(text=text)
+        if not self._warning_label.winfo_ismapped():
+            self._warning_label.pack(fill="x", side="bottom",
+                                     before=self._status_label)
+
+        if self._ticks % self.FLASH_EVERY_TICKS == 0:
+            self._flash_on = not self._flash_on
+            background, foreground = self.FLASH_COLOURS[self._flash_on]
+            self._warning_label.config(bg=background, fg=foreground)
 
     def _tick(self) -> None:
         """Timer callback: pull a snapshot and reschedule."""
+        self._ticks += 1
         if self._has_stopped() and not self._reported_stop:
             self._report_stopped()
         try:
