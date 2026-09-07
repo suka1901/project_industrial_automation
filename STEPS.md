@@ -340,7 +340,25 @@ python3 main.py --config config/profiles/pi.yaml
 
 The GUI needs a display — the station monitor, or VNC.
 
-## 4.4 Fallback
+## 4.4 Watching it work
+
+`main.py` shows a live view beside the numbers: the newest frame with a box and
+a confidence round every detection, refreshed as fast as inference produces
+frames. Use it to confirm at a glance what the numbers cannot tell you —
+whether a hexagon is being boxed, whether an object near the sheet edge is
+being missed, whether the marker is in view.
+
+The frame and the boxes are published as one value, so the panel can never
+draw one frame's boxes over another frame's image.
+
+To watch it with no camera, run the offline profile: the same view replays the
+saved photos.
+
+```bash
+python main.py --config config/profiles/offline.yaml
+```
+
+## 4.5 Fallback
 
 If the Pi fails, the same code runs on the laptop with
 `python main.py --config config/config.yaml`. The profiles differ only in

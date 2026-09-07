@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 from typing import Sequence
 
-from domain.models import CycleReport, DetectedObject, StateSnapshot
+from domain.models import CycleReport, Detection, DetectedObject, Preview, StateSnapshot
 
 
 class SharedState:
@@ -42,6 +42,13 @@ class SharedState:
     def set_detections(self, detections: Sequence[DetectedObject]) -> None:
         # Stored as a tuple so the GUI cannot accidentally mutate the list.
         self._replace(detections=tuple(detections))
+
+    def set_preview(self, image, detections: Sequence[Detection],
+                    sequence: int) -> None:
+        """Publish the newest frame together with what was found in it."""
+        self._replace(preview=Preview(image=image,
+                                      detections=tuple(detections),
+                                      sequence=sequence))
 
     def set_status(self, text: str) -> None:
         self._replace(status_text=text)

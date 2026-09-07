@@ -103,6 +103,8 @@ class InferenceWorker(Worker):
 
         result = self._pipeline.process(frame)
         self._state.set_inference_time(result.elapsed_ms)
+        # The GUI shows what the camera sees, whether or not a cycle is running.
+        self._state.set_preview(frame.image, result.detections, frame.sequence)
 
         if self._results.full():
             try:

@@ -133,6 +133,20 @@ class CycleReport:
 
 
 @dataclass(frozen=True)
+class Preview:
+    """One frame and the detections found in it, kept together.
+
+    Bundling them means the GUI cannot draw one frame's boxes over another
+    frame's image, which is what happens when they are stored separately and
+    updated a moment apart.
+    """
+
+    image: Any
+    detections: Sequence[Detection] = field(default_factory=tuple)
+    sequence: int = 0
+
+
+@dataclass(frozen=True)
 class StateSnapshot:
     """An immutable view of the system, produced for the GUI to render."""
 
@@ -140,5 +154,6 @@ class StateSnapshot:
     cycle_index: int = 0
     inference_ms: float = 0.0
     detections: Sequence[DetectedObject] = field(default_factory=tuple)
+    preview: Optional[Preview] = None
     last_report: Optional[CycleReport] = None
     status_text: str = "starting up"

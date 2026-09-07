@@ -43,10 +43,14 @@ class TkView(View):
         # window stays up looking healthy and every cycle silently fails.
         self._has_stopped = has_stopped or (lambda: False)
         self._reported_stop = False
+        # Tk drops an image the moment nothing references it, so the current
+        # one is held here. `_shown_sequence` avoids rescaling an unchanged frame.
+        self._photo = None
+        self._shown_sequence = -1
 
         self._root = tk.Tk()
         self._root.title("INA700 - AI Pick and Place")
-        self._root.geometry("760x460")
+        self._root.geometry("1180x640")
         self._root.protocol("WM_DELETE_WINDOW", self._handle_close)
 
         self._build_widgets()
@@ -82,9 +86,17 @@ class TkView(View):
         self._timing_label = ttk.Label(controls, text="inference: - ms")
         self._timing_label.grid(row=0, column=5)
 
+        # Live view on the left, numbers on the right.
+        body = ttk.Frame(self._root)
+        body.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+
+        self._preview = ttk.Label(body, text="waiting for the first frame",
+                                  anchor="center", relief="sunken", width=40)
+        self._preview.pack(side="left", fill="both", expand=True, padx=(0, 10))
+
         # Detection table: this is the "display position and orientation" part.
         columns = ("shape", "colour", "conf", "x", "y", "rz")
-        self._tree = ttk.Treeview(self._root, columns=columns,
+        self._tree = ttk.Treeview(body, columns=columns,
                                   show="headings", height=10)
         headings = {
             "shape": "Shape", "colour": "Colour", "conf": "Conf.",
@@ -92,8 +104,8 @@ class TkView(View):
         }
         for column in columns:
             self._tree.heading(column, text=headings[column])
-            self._tree.column(column, width=110, anchor="center")
-        self._tree.pack(fill="both", expand=True, padx=10, pady=(0, 8))
+            self._tree.column(column, width=88, anchor="center")
+        self._tree.pack(side="right", fill="y")
 
         self._status_label = ttk.Label(self._root, text="starting up",
                                        relief="sunken", anchor="w", padding=4)
@@ -118,8 +130,47 @@ class TkView(View):
 
     # --- View interface ----------------------------------------------------
 
+    PREVIEW_WIDTH = 640          # display only; nothing measures this image
+    BOX_COLOUR = (0, 200, 255)   # BGR: amber, readable on both paper and table
+
+    def _render_preview(self, preview) -> None:
+        """Draw the newest frame with a box round each detection.
+
+        Only the shape and confidence are drawn. The millimetre values live in
+        the table, and repeating them over the image makes both harder to read.
+        """
+        if preview is None or preview.image is None:
+            return
+        if preview.sequence == self._shown_sequence:
+            return                                   # nothing new to show
+
+        import cv2
+        from PIL import Image, ImageTk
+
+        image = preview.image.copy()
+        for detection in preview.detections:
+            box = detection.box
+            if box is None:
+                continue
+            top_left = (int(box.u_min), int(box.v_min))
+            bottom_right = (int(box.u_max), int(box.v_max))
+            cv2.rectangle(image, top_left, bottom_right, self.BOX_COLOUR, 3)
+            cv2.putText(image, f"{detection.shape.value} {detection.confidence:.2f}",
+                        (top_left[0], max(18, top_left[1] - 8)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.BOX_COLOUR, 2)
+
+        height, width = image.shape[:2]
+        scale = self.PREVIEW_WIDTH / float(width)
+        small = cv2.resize(image, (self.PREVIEW_WIDTH, int(height * scale)),
+                           interpolation=cv2.INTER_AREA)
+
+        self._photo = ImageTk.PhotoImage(
+            Image.fromarray(cv2.cvtColor(small, cv2.COLOR_BGR2RGB)))
+        self._preview.config(image=self._photo, text="")
+        self._shown_sequence = preview.sequence
+
     def render(self, snapshot: StateSnapshot) -> None:
-        """Redraw the table and labels from an immutable snapshot."""
+        """Redraw the preview, the table and the labels from one snapshot."""
         self._timing_label.config(
             text=f"inference: {snapshot.inference_ms:.0f} ms"
                  + ("" if snapshot.inference_ms <= self._budget_ms
@@ -129,6 +180,12 @@ class TkView(View):
             text=f"[{'connected' if snapshot.connected else 'no robot'}] "
                  f"cycle {snapshot.cycle_index} - {snapshot.status_text}"
         )
+
+        try:
+            self._render_preview(snapshot.preview)
+        except Exception as exc:
+            # A preview failure must never stop the numbers being shown.
+            log.debug("Preview failed: %s", exc)
 
         self._tree.delete(*self._tree.get_children())
         for obj in snapshot.detections:

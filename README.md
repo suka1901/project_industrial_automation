@@ -12,9 +12,6 @@ Course: INA700 — AI-based pick and place, University West
 **Assigned shapes: circle, square, star.** Hexagon and triangle must never be
 detected or acted on.
 
-- **[STEPS.md](STEPS.md)** — every practical step, in order, from testing with
-  no hardware through to the full rehearsal. Start there.
-
 ---
 
 ## Layout
@@ -276,7 +273,7 @@ document cannot drift from the code, because the test would fail first.
 | AI inference — shape, position, orientation | `YoloDetector` + `HarmonicOrientationEstimator` |
 | Coordinate translation pixel → work object | `adapters/mapping/`, ArUco homography |
 | Server communication Pi → robot | `TcpServerTransport`, `MessageCodec` |
-| GUI showing position and orientation | `adapters/gui/tk_view.py` |
+| GUI showing position and orientation | `adapters/gui/tk_view.py` — live camera view with boxes, plus the X/Y/Rz table |
 | Robot: client communication | `MainModule.mod` |
 | Robot: dynamic picking | `PickTargetFor` |
 | Robot: fixed-position placing | `placeTargets{5}` in `wobj2` |
