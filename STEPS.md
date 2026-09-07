@@ -70,6 +70,18 @@ cycle 1: SUCCESS in 1 attempt(s) -> CIRCLE GREEN x=355.6 y=228.2 rz=0.0
 The first inference takes **20–30 seconds** while the model loads, then settles
 near 120 ms. That is not a hang.
 
+**A FAILED cycle here is usually not a fault.** The replay walks the photos in
+name order, and 9 of the 55 are hard negatives — hexagon and triangle only. Land
+on those and the model correctly reports nothing, so the cycle has nothing to
+pick. The printed reason says which:
+
+```
+cycle 2: FAILED in 3 attempt(s)   [no object matched the request]
+```
+
+`no object matched the request` on those photos is the hard negatives working.
+Judge detection quality with §1.5, not with two cycles of a replay.
+
 | Problem | Fix |
 |---|---|
 | `capture crashed: No device is available` | You ran the **lab** profile. Add `--config config/config.offline.yaml` — the default expects a camera |

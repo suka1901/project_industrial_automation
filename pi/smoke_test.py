@@ -98,7 +98,11 @@ def main() -> int:
               f"in {report.attempts} attempt(s)"
               + (f" -> {target.shape.value} {target.colour.value} "
                  f"x={target.pose.x:.1f} y={target.pose.y:.1f} "
-                 f"rz={target.pose.rz:.1f}" if target else ""))
+                 f"rz={target.pose.rz:.1f}" if target else "")
+              # Without the reason a failure is a mystery. Replaying saved
+              # photos, the usual one is landing on a hard negative, which is
+              # the model behaving correctly rather than a fault.
+              + (f"   [{report.message}]" if not target and report.message else ""))
 
     print("\n--- messages that went to the robot ---")
     for message in getattr(transport, "sent", []):
