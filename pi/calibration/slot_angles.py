@@ -1,5 +1,15 @@
 """Measures the angle each shape must arrive at in its slot.
 
+Point the camera so the jig is in frame, seat each object in its own slot, and
+draw a box round that slot. The angle is read where the object already lies.
+
+The older way - lift the object straight out of the slot without turning it,
+set it on the picking sheet, measure there - put a hand movement between the
+slot and the number. Any twist during the lift became a permanent error in a
+value every placement depends on.
+
+Keys: R box the slot, 1-5 pick the shape, SPACE record, S save, Q quit.
+
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
 """
@@ -11,7 +21,7 @@ import statistics
 import sys
 from collections import deque
 from pathlib import Path
-from typing import Deque, Dict, List, Optional
+from typing import Deque, Dict, List, Optional, Tuple
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
@@ -33,9 +43,22 @@ def build_source(kind: str, path: Optional[str]):
     return FileFrameSource(directory=path or str(BASE_DIR / ".." / "model" / "dataset"))
 
 
-def largest_object_box(image) -> Optional[BoundingBox]:
-    """Bounding box of the biggest thing in view, ignoring specks."""
+def largest_object_box(image, region: Optional[Tuple[int, int, int, int]] = None
+                       ) -> Optional[BoundingBox]:
+    """Bounding box of the biggest thing in view, ignoring specks.
+
+    `region` restricts the search to one slot. Without it the jig plate itself,
+    or an object still lying on the sheet, is often the biggest thing in frame.
+    """
     import cv2
+
+    offset_x = offset_y = 0
+    if region is not None:
+        x, y, w, h = region
+        image = image[y:y + h, x:x + w]
+        offset_x, offset_y = x, y
+        if image.size == 0:
+            return None
 
     grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     grey = cv2.GaussianBlur(grey, (5, 5), 0)
@@ -49,10 +72,21 @@ def largest_object_box(image) -> Optional[BoundingBox]:
         return None
 
     largest = max(contours, key=cv2.contourArea)
-    if cv2.contourArea(largest) < 500:
+    area = cv2.contourArea(largest)
+    if area < 500:
+        return None
+
+    # A "contour" covering nearly the whole search area means there was no
+    # object to separate from the background - an empty slot, or a region
+    # drawn entirely on the plate. Reporting a box here would let an angle be
+    # recorded from nothing at all.
+    searched = float(image.shape[0] * image.shape[1])
+    if area > 0.9 * searched:
         return None
 
     x, y, w, h = cv2.boundingRect(largest)
+    x += offset_x
+    y += offset_y
     return BoundingBox(float(x), float(y), float(x + w), float(y + h))
 
 
@@ -71,6 +105,8 @@ def main() -> int:
     recorded: Dict[Shape, float] = {}
     history: Deque[float] = deque(maxlen=HISTORY)
     selected = SELECTABLE[0]
+    # One region per shape: each slot sits somewhere different on the jig.
+    regions: Dict[Shape, Tuple[int, int, int, int]] = {}
 
     source = build_source(args.camera, args.path)
     source.open()
@@ -83,7 +119,12 @@ def main() -> int:
                 continue
 
             canvas = frame.image.copy()
-            box = largest_object_box(frame.image)
+            region = regions.get(selected)
+            box = largest_object_box(frame.image, region)
+
+            if region is not None:
+                x, y, w, h = region
+                cv2.rectangle(canvas, (x, y), (x + w, y + h), (255, 180, 0), 2)
 
             angle: Optional[float] = None
             if box is not None:
@@ -110,6 +151,8 @@ def main() -> int:
                 (f"angle: {angle:+7.2f} deg   spread {spread:.2f}"
                  if angle is not None else "angle: no object in view"),
                 "STEADY - press SPACE to record" if steady else "settling...",
+                ("slot boxed" if region is not None
+                 else "press R and drag a box round this slot"),
             ]
             for index, line in enumerate(lines):
                 cv2.putText(canvas, line, (12, 32 + index * 30),
@@ -123,13 +166,24 @@ def main() -> int:
                             (12, 140 + index * 26), cv2.FONT_HERSHEY_SIMPLEX,
                             0.6, (220, 220, 220), 1)
 
-            cv2.imshow("slot angles - 1-5 select, SPACE record, s save, q quit", canvas)
+            cv2.imshow("slot angles - R box slot, 1-5 shape, SPACE record, S save, Q quit",
+                       canvas)
             key = cv2.waitKey(20) & 0xFF
 
             if key == ord("q"):
                 break
             if ord("1") <= key <= ord("5"):
                 selected = SELECTABLE[key - ord("1")]
+                history.clear()
+            if key in (ord("r"), ord("R")):
+                chosen = cv2.selectROI(
+                    "drag a box round this slot, then ENTER", frame.image,
+                    showCrosshair=False)
+                cv2.destroyWindow("drag a box round this slot, then ENTER")
+                # A zero-width selection means the operator pressed ESC.
+                regions[selected] = tuple(int(v) for v in chosen) if chosen[2] and chosen[3] else None
+                if regions[selected] is None:
+                    regions.pop(selected, None)
                 history.clear()
             if key == ord(" ") and angle is not None:
                 if not steady:

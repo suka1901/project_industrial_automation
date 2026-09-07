@@ -255,23 +255,35 @@ Place a **square** deliberately at about 45°, send one pick, watch how it seats
 ## 3.5 (A10) Teach `wobj2` and the slot angles
 
 Teach the placing work object at the jig and confirm `p10`–`p60` still land in
-their slots. Then for each shape: seat it **in its slot**, lift it **straight
-out without turning it**, set it on the picking sheet, and read it with:
+their slots.
+
+**Position the jig so it is in the camera frame.** Then the angles are read
+where the objects already lie, and nothing has to be lifted.
+
+Seat every object in its own slot, then:
 
 ```bash
 python calibration/slot_angles.py --camera basler
 ```
 
-`1`–`5` picks the shape, `SPACE` records, `s` saves.
+For each shape: press `1`–`5` to pick it, press `R` and **drag a box round that
+slot**, wait for the reading to settle, press `SPACE`. `S` saves.
 
 **Expect:** each reading settles below **0.5° spread** before it lets you
 record. Paste the saved block into `coordinates.place_slot_angles_deg`.
 
+> The box matters. Without it the tool measures the biggest thing in frame,
+> which is usually the jig plate itself or an object still lying on the sheet.
+
 | Problem | Fix |
 |---|---|
+| "no object in view" with the slot boxed | The box is on bare plate, or the object is not seated. An empty region is rejected rather than measured |
 | Will not settle | Same causes as 2.5 — glare, focus, light. A star is the most sensitive |
 | Star reads wildly | Thin points eroded by thresholding — raise the light, check `padding_px` |
 | Circle refuses an angle | Correct. A circle has no orientation; it records 0 |
+
+The jig does not have to be in frame during a picking cycle — only while
+measuring these angles.
 
 ## 3.6 (A11) The remaining numbers
 
