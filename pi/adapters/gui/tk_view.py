@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional, Sequence
 
-from adapters.gui.formatting import angle_confidence_text
+from adapters.gui.formatting import angle_confidence_text, untrusted_angle_warning
 from domain.enums import Colour, Shape
 from domain.models import PickRequest, StateSnapshot
 from ports.interfaces import View
@@ -113,6 +113,12 @@ class TkView(View):
             self._tree.column(column, width=88, anchor="center")
         self._tree.pack(side="right", fill="y")
 
+        # A banner rather than a line in the status bar: an object placed
+        # unrotated is the one failure the operator must not read past.
+        self._warning_label = tk.Label(self._root, text="", anchor="w",
+                                       padx=8, pady=6, fg="#7A1F1F",
+                                       bg="#FFE08A", font=("", 11, "bold"))
+
         self._status_label = ttk.Label(self._root, text="starting up",
                                        relief="sunken", anchor="w", padding=4)
         self._status_label.pack(fill="x", side="bottom")
@@ -193,6 +199,8 @@ class TkView(View):
             # A preview failure must never stop the numbers being shown.
             log.debug("Preview failed: %s", exc)
 
+        self._show_warning(untrusted_angle_warning(snapshot.detections))
+
         self._tree.delete(*self._tree.get_children())
         for obj in snapshot.detections:
             self._tree.insert("", "end", values=(
@@ -206,6 +214,15 @@ class TkView(View):
             ))
 
 
+
+    def _show_warning(self, text: str) -> None:
+        """Show the banner only while there is something to warn about."""
+        if text:
+            self._warning_label.config(text=text)
+            if not self._warning_label.winfo_ismapped():
+                self._warning_label.pack(fill="x", side="bottom", before=self._status_label)
+        elif self._warning_label.winfo_ismapped():
+            self._warning_label.pack_forget()
 
     def _tick(self) -> None:
         """Timer callback: pull a snapshot and reschedule."""

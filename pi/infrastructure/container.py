@@ -226,6 +226,8 @@ class Container:
             angle_sign=section.get("angle_sign", 1),
             angle_offset_deg=section.get("angle_offset_deg", 0.0),
             slot_angles_deg=slot_angles,
+            min_angle_confidence=self._config.get("orientation", {})
+                                     .get("min_place_confidence", 0.10),
         )
 
     @property
@@ -239,7 +241,8 @@ class Container:
             AllowedShapeSelector(self.shapes),          # never touch the other two
             ConfidenceSelector(self._config["vision"].get("min_confidence", 0.5)),
             OrientationConfidenceSelector(
-                self._config.get("orientation", {}).get("min_place_confidence", 0.10)),
+                self._config.get("orientation", {})
+                    .get("on_low_angle_confidence", "pick")),
             ShapeRequestSelector(),                      # what the operator chose
             ColourRequestSelector(),                     # colour rule (Level II/III)
             NearestToOriginSorter(),                     # shortest robot travel first

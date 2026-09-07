@@ -53,23 +53,32 @@ class ConfidenceSelector(ObjectSelector):
 
 
 class OrientationConfidenceSelector(ObjectSelector):
-    """Drops objects whose angle could not be measured well enough to place.
+    """Decides what to do with an object whose angle cannot be trusted.
 
-    A weak outline yields an angle indistinguishable from noise, and the
-    estimator reports 0 degrees rather than guessing. Placing on that 0 is a
-    silent error, so such an object is skipped instead: the operator sees
-    nothing found, which is honest, rather than a part seated crooked.
+    Two defensible answers, so it is a setting rather than a rule:
 
-    A circle has no orientation to measure and always passes.
+    `pick`  - pick it anyway and place it unrotated. The assignment requires
+              every object to be picked in each cycle, and allows one of six
+              to be placed wrongly, so a doubtful angle costs less than a
+              refused pick. `CoordinateService` has already zeroed the
+              rotation and cleared `angle_trusted`, and the GUI says so.
+
+    `skip`  - leave it on the board rather than place it crooked. Right when
+              placement accuracy matters more than throughput.
+
+    A circle has no orientation to doubt and always passes either way.
     """
 
-    def __init__(self, minimum: float = 0.10) -> None:
-        self._minimum = minimum
+    PICK = "pick"
+    SKIP = "skip"
+
+    def __init__(self, policy: str = PICK) -> None:
+        self._policy = policy.lower()
 
     def select(self, objects, request: PickRequest):
-        return [o for o in objects
-                if o.detection.shape.is_rotationally_free
-                or o.detection.angle_confidence >= self._minimum]
+        if self._policy != self.SKIP:
+            return list(objects)
+        return [o for o in objects if o.angle_trusted]
 
 
 class NearestToOriginSorter(ObjectSelector):

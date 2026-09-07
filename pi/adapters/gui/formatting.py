@@ -12,18 +12,31 @@ from __future__ import annotations
 from domain.models import DetectedObject
 
 NO_ANGLE = "n/a"
-SKIP_MARK = "  SKIP"
+NOT_TRUSTED_MARK = "  NO ANGLE"
 
 
 def angle_confidence_text(obj: DetectedObject, gate: float) -> str:
     """How clearly the outline showed its symmetry, and what follows from it.
 
     A circle has no orientation, so there is nothing to measure and nothing to
-    gate on. Anything else below the gate is skipped rather than placed
-    crooked - and saying so is the difference between an operator understanding
-    a skipped object and being baffled by one the camera clearly sees.
+    doubt. Anything else below the gate is placed unrotated, which is worth
+    saying out loud: the object will be picked and put down, just not turned.
     """
     if obj.shape.is_rotationally_free:
         return NO_ANGLE
     value = obj.detection.angle_confidence
-    return f"{value:.3f}" + (SKIP_MARK if value < gate else "")
+    return f"{value:.3f}" + ("" if obj.angle_trusted else NOT_TRUSTED_MARK)
+
+
+def untrusted_angle_warning(objects) -> str:
+    """One line naming every object that will be placed unrotated.
+
+    Empty when there is nothing to warn about, so the caller can simply test
+    it. Naming the shapes matters - "one object" sends the operator hunting.
+    """
+    doubtful = [o.shape.value for o in objects if not o.angle_trusted]
+    if not doubtful:
+        return ""
+    return ("ANGLE NOT MEASURED: " + ", ".join(sorted(doubtful))
+            + "  -  placed unrotated. Move it away from the sheet edge, "
+              "or use a coloured object.")

@@ -530,8 +530,13 @@ Two things make an outline unreadable, and both are avoidable at the bench:
 | Prefer **coloured objects over white** where you have the choice | A white object on white paper has no boundary to find; the mask latches onto internal shading and breaks into facets |
 | Light so the object casts a **visible shadow edge** | For a pale object that shadow is the only boundary there is |
 
-An object marked SKIP in the table is not lost — the cycle retries on a fresh
-frame. Persistent skipping of the same object means one of the above.
+An object marked **NO ANGLE** is still picked and placed, just not turned, and
+a banner names it. That is the default because the assignment requires every
+object to be picked in each cycle and allows one of six to be misoriented.
+
+If placement accuracy matters more on the day, set
+`orientation.on_low_angle_confidence: skip` and it will be left on the board
+instead.
 
 ## Afterwards
 

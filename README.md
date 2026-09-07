@@ -149,8 +149,19 @@ Below 0.10 the angle is not merely uncertain, it is wrong by 25–31° — a qua
 turn on a square. Above 0.25 it is exact. The gate is not a guess, and lowering
 it to skip fewer objects would place those objects a quarter turn out.
 
-Skipping is also per-frame, not per-object: a refused pick makes the cycle
-retry, and the retry measures a fresh frame.
+**What happens then is a policy, not a rule.** The assignment requires every
+object to be picked in each cycle, and allows one of six to be misoriented — so
+a refused pick costs more than a doubtful angle. The default is therefore to
+**pick it and place it unrotated**, with the rotation zeroed rather than
+believed, and a banner naming the shape:
+
+```
+ANGLE NOT MEASURED: STAR  -  placed unrotated.
+Move it away from the sheet edge, or use a coloured object.
+```
+
+`orientation.on_low_angle_confidence: skip` leaves it on the board instead,
+which is right when placement accuracy matters more than throughput.
 
 ### Colour is judged on the object, not the box
 

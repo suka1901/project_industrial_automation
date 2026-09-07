@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from adapters.gui.formatting import angle_confidence_text
+from adapters.gui.formatting import angle_confidence_text, untrusted_angle_warning
 from application.shared_state import SharedState
 from domain.enums import Colour, Shape
 from domain.models import BoundingBox, Detection, PixelPoint
@@ -52,13 +52,14 @@ class TestPreview(unittest.TestCase):
 class TestAngleConfidenceText(unittest.TestCase):
     """The GUI must explain a skipped object rather than just omitting it."""
 
-    def _object(self, shape, angle_confidence):
+    def _object(self, shape, angle_confidence, trusted=True):
         from domain.models import DetectedObject, WorldPose
         detection = Detection(shape=shape, colour=Colour.RED, confidence=0.9,
                               centre=PixelPoint(0.0, 0.0), angle_deg=0.0,
                               angle_confidence=angle_confidence)
         return DetectedObject(detection=detection,
-                              pose=WorldPose(0.0, 0.0, 0.0, 0.0))
+                              pose=WorldPose(0.0, 0.0, 0.0, 0.0),
+                              angle_trusted=trusted)
 
     def test_a_circle_has_no_angle_to_report(self):
         text = angle_confidence_text(self._object(Shape.CIRCLE, 0.0), gate=0.10)
@@ -68,10 +69,38 @@ class TestAngleConfidenceText(unittest.TestCase):
         text = angle_confidence_text(self._object(Shape.STAR, 0.21), gate=0.10)
         self.assertEqual(text, "0.210")
 
-    def test_an_untrusted_angle_says_it_will_be_skipped(self):
-        text = angle_confidence_text(self._object(Shape.STAR, 0.022), gate=0.10)
-        self.assertIn("SKIP", text)
+    def test_an_untrusted_angle_is_marked(self):
+        text = angle_confidence_text(
+            self._object(Shape.STAR, 0.022, trusted=False), gate=0.10)
+        self.assertIn("NO ANGLE", text)
         self.assertIn("0.022", text)
+
+
+class TestUntrustedAngleWarning(unittest.TestCase):
+    """The banner must name the shapes, and vanish when there is nothing wrong."""
+
+    def _object(self, shape, trusted):
+        from domain.models import DetectedObject, WorldPose
+        detection = Detection(shape=shape, colour=Colour.RED, confidence=0.9,
+                              centre=PixelPoint(0.0, 0.0), angle_deg=0.0,
+                              angle_confidence=0.02 if not trusted else 0.3)
+        return DetectedObject(detection=detection,
+                              pose=WorldPose(0.0, 0.0, 0.0, 0.0),
+                              angle_trusted=trusted)
+
+    def test_silent_when_every_angle_is_trusted(self):
+        objects = [self._object(Shape.STAR, True), self._object(Shape.SQUARE, True)]
+        self.assertEqual(untrusted_angle_warning(objects), "")
+
+    def test_names_the_shapes_it_could_not_measure(self):
+        objects = [self._object(Shape.STAR, False), self._object(Shape.SQUARE, True)]
+        warning = untrusted_angle_warning(objects)
+        self.assertIn("STAR", warning)
+        self.assertNotIn("SQUARE", warning)
+        self.assertIn("unrotated", warning)
+
+    def test_silent_with_nothing_on_the_board(self):
+        self.assertEqual(untrusted_angle_warning([]), "")
 
 
 if __name__ == "__main__":

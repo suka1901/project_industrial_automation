@@ -93,6 +93,10 @@ class DetectedObject:
 
     detection: Detection
     pose: WorldPose
+    # False when the outline was too weak to measure an angle from. The object
+    # is still picked - a refused pick fails the assignment outright, while a
+    # wrong angle costs one of the six placements - but the operator is told.
+    angle_trusted: bool = True
 
     @property
     def shape(self) -> Shape:

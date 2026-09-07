@@ -57,6 +57,12 @@ orientation:
   # photos: above 0.10 the angle held to 1.5 deg, below 0.05 it was 12 deg out.
   # A circle is exempt - it has no orientation to get wrong.
   min_place_confidence: 0.10
+  # What to do when the angle cannot be trusted:
+  #   pick - pick it and place it unrotated, with a warning on screen. The
+  #          course requires every object to be picked in each cycle and allows
+  #          one of six to be misoriented, so this costs less than refusing.
+  #   skip - leave it on the board rather than place it crooked.
+  on_low_angle_confidence: pick
 
 colour:
   kind: hsv              # hsv | passthrough (passthrough = offline mock only)

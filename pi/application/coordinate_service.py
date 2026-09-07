@@ -27,19 +27,36 @@ class CoordinateService:
         angle_sign: int = 1,
         angle_offset_deg: float = 0.0,
         slot_angles_deg: Dict[Shape, float] | None = None,
+        min_angle_confidence: float = 0.10,
     ) -> None:
         self._mapper = mapper
         self._pick_depth_mm = pick_depth_mm
         self._angle_sign = 1 if angle_sign >= 0 else -1
         self._angle_offset_deg = angle_offset_deg
         self._slot_angles = slot_angles_deg or {}
+        # Below this the measured angle is wrong by 25-31 degrees, so it is
+        # discarded rather than believed. See README for the measurements.
+        self._min_angle_confidence = min_angle_confidence
+
+    def angle_is_trusted(self, detection: Detection) -> bool:
+        """Whether the outline showed its symmetry clearly enough to believe.
+
+        A circle has no orientation, so there is nothing to doubt.
+        """
+        if detection.shape.is_rotationally_free:
+            return True
+        return detection.angle_confidence >= self._min_angle_confidence
 
     def to_pose(self, detection: Detection) -> WorldPose:
         """Map one detection into a picking-work-object pose for the robot."""
         x_mm, y_mm = self._mapper.to_world_xy(detection.centre)
 
+        # An untrusted angle is treated as zero rather than acted on. Believing
+        # it would seat the object up to a quarter turn out.
+        measured = detection.angle_deg if self.angle_is_trusted(detection) else 0.0
+
         # Image rotation into the robot's rotation sense.
-        object_angle = self._angle_sign * detection.angle_deg + self._angle_offset_deg
+        object_angle = self._angle_sign * measured + self._angle_offset_deg
 
         # Then the wrist correction the vacuum pick makes necessary.
         slot_angle = self._slot_angles.get(detection.shape, 0.0)
@@ -52,4 +69,6 @@ class CoordinateService:
         if not self._mapper.is_calibrated():
             log.error("Coordinate mapper is not calibrated - run the calibration script")
             return []
-        return [DetectedObject(detection=d, pose=self.to_pose(d)) for d in detections]
+        return [DetectedObject(detection=d, pose=self.to_pose(d),
+                              angle_trusted=self.angle_is_trusted(d))
+                for d in detections]

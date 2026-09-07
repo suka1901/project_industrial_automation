@@ -84,26 +84,36 @@ if __name__ == "__main__":
 
 
 class TestOrientationConfidenceSelector(unittest.TestCase):
-    """A weak angle must not reach the robot, but a circle has no angle to lose."""
+    """Two defensible policies for an angle that cannot be trusted."""
 
-    def _object(self, shape, angle_confidence):
+    def _object(self, shape, angle_trusted):
         detection = Detection(shape=shape, colour=Colour.RED, confidence=0.9,
                               centre=PixelPoint(0.0, 0.0), angle_deg=0.0,
-                              angle_confidence=angle_confidence)
+                              angle_confidence=0.20 if angle_trusted else 0.02)
         return DetectedObject(detection=detection,
-                              pose=WorldPose(0.0, 0.0, 0.0, 0.0))
+                              pose=WorldPose(0.0, 0.0, 0.0, 0.0),
+                              angle_trusted=angle_trusted)
 
-    def test_strong_angle_survives(self):
-        selector = OrientationConfidenceSelector(0.10)
-        objects = [self._object(Shape.STAR, 0.20)]
+    def test_pick_policy_keeps_a_doubtful_object(self):
+        """A refused pick fails the assignment; a wrong angle costs one of six."""
+        selector = OrientationConfidenceSelector("pick")
+        objects = [self._object(Shape.STAR, angle_trusted=False)]
         self.assertEqual(len(selector.select(objects, PickRequest(Shape.STAR, None))), 1)
 
-    def test_weak_angle_is_dropped(self):
-        selector = OrientationConfidenceSelector(0.10)
-        objects = [self._object(Shape.STAR, 0.02)]
+    def test_skip_policy_drops_a_doubtful_object(self):
+        selector = OrientationConfidenceSelector("skip")
+        objects = [self._object(Shape.STAR, angle_trusted=False)]
         self.assertEqual(selector.select(objects, PickRequest(Shape.STAR, None)), [])
 
-    def test_circle_passes_with_no_angle_at_all(self):
-        selector = OrientationConfidenceSelector(0.10)
-        objects = [self._object(Shape.CIRCLE, 0.0)]
-        self.assertEqual(len(selector.select(objects, PickRequest(Shape.CIRCLE, None))), 1)
+    def test_skip_policy_keeps_a_trusted_object(self):
+        selector = OrientationConfidenceSelector("skip")
+        objects = [self._object(Shape.STAR, angle_trusted=True)]
+        self.assertEqual(len(selector.select(objects, PickRequest(Shape.STAR, None))), 1)
+
+    def test_a_circle_is_always_trusted_so_survives_either_policy(self):
+        for policy in ("pick", "skip"):
+            with self.subTest(policy=policy):
+                selector = OrientationConfidenceSelector(policy)
+                objects = [self._object(Shape.CIRCLE, angle_trusted=True)]
+                self.assertEqual(
+                    len(selector.select(objects, PickRequest(Shape.CIRCLE, None))), 1)
