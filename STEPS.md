@@ -534,17 +534,29 @@ orientation — the Grade Level III criterion, met without intervention.
 
 ### Placing the objects so the angle can be measured
 
-Two things make an outline unreadable, and both are avoidable at the bench:
+Measured on the 271 labelled photos: of 404 objects lying on the sheet, 43
+(10.6%) fell below the `|Z| >= 0.10` gate. The causes are not what they look
+like, so the rules below come from the numbers rather than from intuition.
 
 | Do | Why |
 |---|---|
-| Keep objects **well inside the sheet**, not near its edge | The dark table gets into the detection box and the thresholding merges object and table into one blob. Three of the six refusals on the held-out set were this |
-| Prefer **coloured objects over white** where you have the choice | A white object on white paper has no boundary to find; the mask latches onto internal shading and breaks into facets |
+| **Never let two objects touch.** Leave a visible gap | This is the one cause that is both dominant and free to avoid. All 16 overlapping objects failed the gate; of the 58 with even a small gap, **none** did. Two touching objects merge into a single outline, so the signature belongs to the blob and not to the shape |
+| Prefer **coloured objects over white** where you have the choice | A white object on white paper has no boundary to find; the mask latches onto internal shading and breaks into facets. This is most of what remains after the touching cases |
 | Light so the object casts a **visible shadow edge** | For a pale object that shadow is the only boundary there is |
 
-An object marked **NO ANGLE** is still picked and placed, just not turned, and
-a banner names it. That is the default because the assignment requires every
-object to be picked in each cycle and allows one of six to be misoriented.
+Two things that sound like they should matter and **do not**, so do not spend
+lab time on them:
+
+- **Distance from the sheet edge.** Restricting the crop to the sheet was
+  tested directly: it recovered 1 object and broke 5. The dark table in the
+  crop is not what breaks the outline.
+- **Resolution.** The failure rate is 10.7% at 640 px and 10.9% at 1280 px, so
+  the full 2440 px camera frame will not improve it either.
+
+An object marked **WEAK** is still picked and placed, just not turned, and a
+flashing banner names it. That is the default because the assignment requires
+every object to be picked in each cycle and allows one of six to be
+misoriented.
 
 If placement accuracy matters more on the day, set
 `orientation.on_low_angle_confidence: skip` and it will be left on the board
