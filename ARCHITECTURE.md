@@ -141,9 +141,12 @@ checks; a timeout on every blocking call.
 
 ## 6. Vision (R1, R2, R10)
 
-**Model:** YOLO11n trained on your three shapes only, exported to **NCNN**, run at
-**320×320**. On a Pi 4 that is roughly 0.3–0.9 s — inside the 3 s budget, with the
-measured time printed every cycle and shown in the GUI.
+**Model:** YOLOv8n trained on the three assigned shapes only, exported to **NCNN**,
+run at **640×640**. Measured at **118 ms** on a two-core x86 CPU; the Pi 4 will be
+slower and the figure is **not yet measured there** — see the deployment note in
+`PROCEDURE.md` Part F. The budget is 3 s, and the measured time is printed every
+cycle and shown in the GUI, so a regression is visible immediately rather than at
+the demo.
 
 **Making it ignore the other two shapes (R1):** include them in the training photos
 **unlabelled**. They become hard negatives and the model learns to leave them alone.
@@ -418,7 +421,7 @@ every position an object can occupy.
 |---|---|---|
 | 0 | ✅ Scaffold, domain, ports, mocks, 54 unit tests | everything after is testable on a laptop |
 | 1 | Dataset: 200–300 photos, varied light and position, the two forbidden shapes present but **unlabelled** | biggest single driver of final accuracy |
-| 2 | Train YOLO11n, export NCNN, benchmark on the Pi, confirm < 3 s | fail fast if the model is too slow |
+| 2 | Train YOLOv8n, export NCNN, benchmark on the Pi, confirm < 3 s | fail fast if the model is too slow |
 | 3 | Mount and measure the marker; `aruco_check.py` until jitter is low | nothing downstream is meaningful before this |
 | 4 | Measure the marker's position in `wobj1`; teach `wobjPlace`; measure slot angles | needs the station |
 | 5 | Load the RAPID modules; prove **manual mode** end to end | Step 1 working again = a safety net |
@@ -433,7 +436,7 @@ every position an object can occupy.
 
 | Risk | Mitigation in place |
 |---|---|
-| Pi inference too slow | 320px NCNN; drop to 256 if needed; timing printed every cycle from day one |
+| Pi inference too slow | NCNN rather than PyTorch; re-export at 480 or 416 if 640 misses the budget; timing printed every cycle from day one |
 | Marker mounted below object-top height | shim it level with the object tops; otherwise expect an outward error growing toward the corners |
 | Camera knocked before the demo | live calibration re-solves every frame |
 | Marker briefly covered | `hold_last_good: true` keeps the last good calibration |

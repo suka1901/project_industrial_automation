@@ -17,3 +17,30 @@
 09:14:05 INFO    [connection      ] adapters.comms.loopback_transport: Loopback transport started (no real robot)
 09:14:05 INFO    [cycle           ] infrastructure.runtime: cycle started
 09:14:31 INFO    [cycle           ] infrastructure.runtime: Cycle 1 finished: SUCCESS after 1 attempt(s) - placed successfully
+18:33:04 INFO    [MainThread      ] main: Starting INA700 with profile 'lab', shapes ['CIRCLE', 'SQUARE', 'STAR']
+18:33:04 INFO    [capture         ] infrastructure.runtime: capture started
+18:33:04 INFO    [inference       ] infrastructure.runtime: inference started
+18:33:04 INFO    [connection      ] infrastructure.runtime: connection started
+18:33:04 INFO    [cycle           ] infrastructure.runtime: cycle started
+18:33:04 INFO    [connection      ] adapters.comms.loopback_transport: Loopback transport started (no real robot)
+18:33:05 ERROR   [capture         ] infrastructure.runtime: capture crashed: No device is available or no device contains the provided device info properties. : RuntimeException thrown (file 'tlfactory.cpp', line 694)
+Traceback (most recent call last):
+  File "C:\Users\suraj\Desktop\INA700\pi\infrastructure\runtime.py", line 42, in run
+    self.on_start()
+    ~~~~~~~~~~~~~^^
+  File "C:\Users\suraj\Desktop\INA700\pi\infrastructure\runtime.py", line 63, in on_start
+    self._source.open()
+    ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\suraj\Desktop\INA700\pi\adapters\camera\camera.py", line 58, in open
+    device = factory.CreateFirstDevice()
+  File "C:\Anaconda\envs\opencv_env\Lib\site-packages\pypylon\pylon.py", line 1740, in CreateFirstDevice
+    return _pylon.TlFactory_CreateFirstDevice(self, *args)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+_genicam.RuntimeException: No device is available or no device contains the provided device info properties. : RuntimeException thrown (file 'tlfactory.cpp', line 694)
+18:33:05 INFO    [capture         ] infrastructure.runtime: capture stopped
+18:33:05 INFO    [connection      ] infrastructure.runtime: connection stopped
+18:33:06 INFO    [cycle           ] infrastructure.runtime: cycle stopped
+18:33:09 INFO    [inference       ] adapters.detection.yolo_detector: Loading YOLO model from C:\Users\suraj\Desktop\INA700\model\best.pt
+18:33:10 INFO    [inference       ] adapters.detection.yolo_detector: YOLO warm-up complete
+18:33:10 INFO    [inference       ] infrastructure.runtime: inference stopped
+18:33:39 INFO    [MainThread      ] main: Shutdown complete
