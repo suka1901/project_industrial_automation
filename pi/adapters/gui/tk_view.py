@@ -64,7 +64,9 @@ class TkView(View):
         self._colour_var = tk.StringVar(value=ANY)
         ttk.Combobox(
             controls, textvariable=self._colour_var, state="readonly", width=10,
-            values=[ANY, Colour.RED.value, Colour.GREEN.value, Colour.BLUE.value],
+            # Derived from the enum: adding a colour must not mean editing the
+            # view. UNKNOWN is not offered - it is an answer, not a request.
+            values=[ANY] + [c.value for c in Colour if c is not Colour.UNKNOWN],
         ).grid(row=0, column=3, padx=(0, 12))
 
         self._cycle_button = ttk.Button(
