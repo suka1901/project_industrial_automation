@@ -76,8 +76,17 @@ def main() -> int:
     # Wait for the first inference rather than sleeping a fixed time: loading
     # and warming a real model takes seconds, and far longer on the Pi.
     deadline = time.monotonic() + WARM_UP_TIMEOUT_S
-    while time.monotonic() < deadline and state.snapshot().inference_ms <= 0.0:
+    while (time.monotonic() < deadline
+           and state.snapshot().inference_ms <= 0.0
+           and not shutdown.is_set()):          # a dead worker means never
         time.sleep(0.2)
+
+    if shutdown.is_set():
+        print("\nA worker thread died - see the traceback above. "
+              "Wrong profile for this machine? config/config.offline.yaml "
+              "runs from saved photos and needs no camera.")
+        supervisor.stop_all()
+        return 1
     if state.snapshot().inference_ms <= 0.0:
         print(f"NO inference within {WARM_UP_TIMEOUT_S:.0f} s - is the model loading?")
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 
 from domain.enums import Colour, Shape
 from domain.models import PickRequest, StateSnapshot
@@ -31,6 +31,7 @@ class TkView(View):
         snapshot_provider: Callable[[], StateSnapshot],
         refresh_ms: int = 100,
         budget_ms: float = 3000.0,
+        has_stopped: Optional[Callable[[], bool]] = None,
     ) -> None:
         self._allowed_shapes = list(allowed_shapes)
         self._on_cycle_requested = on_cycle_requested
@@ -38,6 +39,10 @@ class TkView(View):
         self._snapshot_provider = snapshot_provider
         self._refresh_ms = refresh_ms
         self._budget_ms = budget_ms
+        # A worker that dies stops the whole application. Without this the
+        # window stays up looking healthy and every cycle silently fails.
+        self._has_stopped = has_stopped or (lambda: False)
+        self._reported_stop = False
 
         self._root = tk.Tk()
         self._root.title("INA700 - AI Pick and Place")
@@ -138,11 +143,22 @@ class TkView(View):
 
     def _tick(self) -> None:
         """Timer callback: pull a snapshot and reschedule."""
+        if self._has_stopped() and not self._reported_stop:
+            self._report_stopped()
         try:
             self.render(self._snapshot_provider())
         except Exception as exc:
             log.exception("GUI refresh failed: %s", exc)
         self._root.after(self._refresh_ms, self._tick)
+
+    def _report_stopped(self) -> None:
+        """Say so plainly, once, and stop offering cycles that cannot run."""
+        self._reported_stop = True
+        self._cycle_button.config(state="disabled")
+        self._status_label.config(
+            text="STOPPED - a worker thread died. See the log; the camera or "
+                 "the robot connection is the usual cause. Restart after fixing it.")
+        log.error("A worker thread has stopped; the GUI can no longer run cycles")
 
     def run(self) -> None:
         """Enter the Tk main loop. Blocks until the window closes."""

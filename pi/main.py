@@ -110,6 +110,7 @@ def main() -> int:
         snapshot_provider=state.snapshot,
         refresh_ms=config.get("gui", {}).get("refresh_ms", 100),
         budget_ms=config["vision"].get("inference_budget_ms", 3000.0),
+        has_stopped=shutdown.is_set,
     )
 
     try:

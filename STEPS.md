@@ -72,10 +72,15 @@ near 120 ms. That is not a hang.
 
 | Problem | Fix |
 |---|---|
+| `capture crashed: No device is available` | You ran the **lab** profile. Add `--config config/config.offline.yaml` — the default expects a camera |
 | `No module named ultralytics` | `pip install ultralytics` |
 | `FileNotFoundError: ../model/best.pt` | Unpack the trained model into `model/` |
 | FAILED, 0 detections | Still loading — the wait is capped at 120 s |
 | `Frame directory not found` | Run `python tools/split_dataset.py` first |
+
+Running it without `--config` uses `config.yaml`, the **lab** profile: real
+camera, real robot. That is deliberate — the profile that runs the station
+should be the default. Every offline command in this file passes `--config`.
 
 ## 1.5 Score the whole pipeline — the one worth reading
 
