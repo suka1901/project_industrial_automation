@@ -208,18 +208,81 @@ Watch the jitter for a **full minute**.
 ## 3.1 (A6) Locate the marker in `wobj1`
 
 Keep the work object you have; just tell the vision system where the marker sits
-inside it.
+inside it. Do not try to touch the centre directly — touch the four corners and
+average them. The averaging cancels the sighting error, and the same four
+readings check the marker size and squareness for free.
 
-1. Jog the tool tip to the **marker centre**.
-2. Read work-object **X** and **Y** off the pendant.
-3. Put them in `aruco.marker_centre_xy_mm`.
-4. If the marker is not square to `wobj1`'s X axis, measure that angle into
-   `aruco.marker_angle_deg`.
+### Set the pendant up so the readout IS the config value
+
+Manual mode, then **ABB menu → Jogging**, and set all three:
+
+| Setting | Value |
+|---|---|
+| Coordinate System | `WorkObject` |
+| Work Object | `wobj1` |
+| Tool | `vac` |
+| Motion mode | Linear |
+
+The Position display now reads the cup's TCP in `wobj1` millimetres, so the
+numbers go straight into config with no arithmetic.
+
+> Confirm `Tool` says `vac` and not `tool0`. With `tool0` you are reading the
+> flange, which is about 90 mm out in X and 178 mm in Z. Every reading still
+> looks plausible and every one of them is wrong.
+
+### Touch the four corners
+
+Touch the **outer corners of the black square** — that is what the detector
+reports, and it must be the same square `marker_length_mm` describes. Measure
+that black edge with a ruler first and confirm it really is the 100 mm, not the
+rubber tile it is printed on.
+
+For each corner: jog above it, come down to **1–2 mm above the surface**, then
+sight **straight down the cup axis** with your eye over it, not off to one side.
+Use small increments for the last millimetre. Record X and Y.
+
+| Corner | X | Y |
+|---|---|---|
+| 1 | | |
+| 2 | | |
+| 3 | | |
+| 4 | | |
+
+`marker_centre_xy_mm` is the average of the four X values and the average of the
+four Y values.
+
+Do not press the cup onto the surface. The rubber deforms, the arm settles, and
+the reading moves — hovering is both safer and more accurate.
+
+### Check before you trust it
+
+| Check | Expect | If not |
+|---|---|---|
+| Each side, corner to corner | ≈ `marker_length_mm` | Consistently larger means you are sighting the outside of the border; consistently different means `marker_length_mm` is wrong |
+| Each diagonal | ≈ 1.414 × the side | One diagonal off means a corner reading is bad — retake it |
+| Two edges at constant Y, two at constant X | marker is square to `wobj1` | Straighten the marker and re-read rather than measuring `marker_angle_deg`; a zero there is one less thing to get wrong |
+
+### Then let the camera correct you
+
+This is what actually gets you under a millimetre, and it means the touching
+only has to be roughly right. Run 3.2, and where the error is the **same at
+every spot**:
+
+```
+new marker_centre = old marker_centre + (jogged − reported)
+```
+
+component-wise, because the mapping is a pure translation. One iteration
+converges. If the error instead grows toward the corners, that is marker height,
+not centre — see 3.2's table.
 
 | Problem | Fix |
 |---|---|
-| Hard to touch the centre precisely | Get close — an error here is a uniform shift, which 3.2 catches |
 | Tempted to re-teach `wobj1` at the marker | Then it is `[0, 0]`, but moving `wobj1` also shifts `Papproach`, `PICK_SURFACE_Z_MM` and the sheet origin. Not worth it against a proven work object |
+| Readings drift between corners | The arm is not settling. Pause a moment after each jog before reading |
+
+Write down the raw corner readings, not just the averages. If 3.2 disagrees, the
+raw numbers tell you whether it was the touching or the marker.
 
 ## 3.2 (A7) Verify the mapping — the gate
 
@@ -290,8 +353,11 @@ measuring these angles.
 In `robot/StationData.mod`:
 
 - `SHEET_ORIGIN_X` / `SHEET_ORIGIN_Y` — jog to the corner of the A3 sheet
-  nearest `wobj1`'s origin and read X and Y. The four `PICK_AREA_*` bounds derive
-  from these.
+  nearest `wobj1`'s origin and read X and Y, with the pendant set up as in 3.1.
+  The four `PICK_AREA_*` bounds derive from these. These only feed the fence,
+  which carries a 15 mm margin, so 1–2 mm is plenty — no need for the corner
+  averaging the marker needs. Worth doing in the same session as 3.1 while the
+  pendant is already set up.
 - `SHEET_SPAN_X` / `SHEET_SPAN_Y` — swap the two if the long edge runs along Y.
 - `PICK_SURFACE_Z_MM` — teach one pick point with an object under the cup, read Z.
 
