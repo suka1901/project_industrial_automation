@@ -40,3 +40,6 @@ model/best_ncnn_model/
 
 # Run-time log, rewritten on every run.
 pi/logs/*.log
+
+# Desktop scratch folder, not part of the project.
+Claude outputs/
