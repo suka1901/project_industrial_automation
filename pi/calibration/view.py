@@ -14,13 +14,22 @@ from __future__ import annotations
 from typing import Any, Tuple
 
 DISPLAY_WIDTH = 1100        # comfortable on a laptop; nothing measures this
+DISPLAY_HEIGHT = 760        # a 2448x2048 frame is still 920 tall at 1100 wide
 
 
-def display_scale(image: Any, width: int = DISPLAY_WIDTH) -> float:
-    """Shrink factor for the preview. 1.0 when the frame already fits."""
-    if image is None or image.shape[1] <= 0:
+def display_scale(image: Any, width: int = DISPLAY_WIDTH,
+                  height: int = DISPLAY_HEIGHT) -> float:
+    """Shrink factor for the preview. 1.0 when the frame already fits.
+
+    Both dimensions are honoured. Fitting the width alone leaves a 2448x2048
+    frame 920 pixels tall, which still runs off a 768 or 900 pixel screen -
+    the bottom of the picture, and the readout drawn on it, simply vanish.
+    """
+    if image is None or image.shape[1] <= 0 or image.shape[0] <= 0:
         return 1.0
-    return min(1.0, float(width) / float(image.shape[1]))
+    return min(1.0,
+               float(width) / float(image.shape[1]),
+               float(height) / float(image.shape[0]))
 
 
 def shrink(image: Any, scale: float) -> Any:

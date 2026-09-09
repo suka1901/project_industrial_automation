@@ -1,0 +1,4 @@
+# Measured with calibration/slot_angles.py.
+# Re-measure whenever the jig moves.
+place_slot_angles_deg:
+  CIRCLE: 0.00

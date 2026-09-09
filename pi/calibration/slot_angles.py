@@ -8,7 +8,13 @@ set it on the picking sheet, measure there - put a hand movement between the
 slot and the number. Any twist during the lift became a permanent error in a
 value every placement depends on.
 
-Keys: R box the slot, 1-5 pick the shape, SPACE record, S save, Q quit.
+Record each shape SEVERAL times: seat it, press SPACE, lift it out, seat it
+again, press SPACE again. A shape-matched slot still has play in it, and the
+spread across seatings is the only honest measure of how much. One reading
+cannot tell you whether it is repeatable to a tenth of a degree or to five.
+
+Keys: R box the slot, 1-5 pick the shape, SPACE record a seating,
+      C clear this shape, S save, Q quit.
 
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
@@ -29,12 +35,17 @@ sys.path.insert(0, str(BASE_DIR))
 from domain.enums import Shape  # noqa: E402
 from domain.models import BoundingBox, Detection  # noqa: E402
 from domain.enums import Colour  # noqa: E402
+from domain.angles import (circular_mean_deg,  # noqa: E402
+                           circular_spread_deg)
 from calibration.view import (display_scale, shrink,  # noqa: E402
                               to_full_resolution)
 
 SELECTABLE: List[Shape] = list(Shape)
 HISTORY = 40           # frames of history behind the stability readout
-STABLE_DEG = 0.5       # spread below which a reading is worth recording
+STABLE_DEG = 0.5       # frame-to-frame spread below which a seating counts
+# Play across seatings beyond this share of the symmetry period means the slot
+# is not holding the shape as tightly as a single reading would suggest.
+LOOSE_SHARE = 0.10
 
 
 def build_source(kind: str, path: Optional[str]):
@@ -106,7 +117,9 @@ def main() -> int:
     from adapters.detection.orientation_estimator import HarmonicOrientationEstimator
     estimator = HarmonicOrientationEstimator()
 
-    recorded: Dict[Shape, float] = {}
+    # Every seating of each shape, not one value per shape: the spread across
+    # them is what says whether a single stored angle can be trusted.
+    seatings: Dict[Shape, List[float]] = {}
     history: Deque[float] = deque(maxlen=HISTORY)
     selected = SELECTABLE[0]
     # One region per shape: each slot sits somewhere different on the jig.
@@ -172,17 +185,35 @@ def main() -> int:
                             (0, 200, 0) if steady else (0, 165, 255), 2)
 
             for index, shape in enumerate(SELECTABLE):
-                mark = "*" if shape in recorded else " "
-                value = f"{recorded[shape]:+.2f}" if shape in recorded else "--"
-                cv2.putText(canvas, f"{index + 1} {mark}{shape.value:<9}{value}",
-                            (12, 140 + index * 26), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6, (220, 220, 220), 1)
+                values = seatings.get(shape, [])
+                period = shape.symmetry_period_deg
+                if not values:
+                    text = f"{index + 1}  {shape.value:<9} --"
+                    colour = (220, 220, 220)
+                elif not period:
+                    text = f"{index + 1}  {shape.value:<9} n/a (no orientation)"
+                    colour = (220, 220, 220)
+                else:
+                    play = circular_spread_deg(values, period)
+                    text = (f"{index + 1}  {shape.value:<9}"
+                            f"n={len(values)}  {circular_mean_deg(values, period):+7.2f}"
+                            f"  play {play:5.2f}")
+                    if len(values) < 3:
+                        text += "  (seat it again)"
+                        colour = (0, 165, 255)
+                    elif play > LOOSE_SHARE * period:
+                        text += "  LOOSE"
+                        colour = (0, 165, 255)
+                    else:
+                        colour = (0, 200, 0)
+                cv2.putText(canvas, text, (12, 140 + index * 26),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, colour, 1)
 
             cv2.imshow("slot angles - R box slot, 1-5 shape, SPACE record, S save, Q quit",
                        canvas)
             key = cv2.waitKey(20) & 0xFF
 
-            if key == ord("q"):
+            if key in (ord("q"), ord("Q")):
                 break
             if ord("1") <= key <= ord("5"):
                 selected = SELECTABLE[key - ord("1")]
@@ -200,35 +231,71 @@ def main() -> int:
                 if regions[selected] is None:
                     regions.pop(selected, None)
                 history.clear()
+            if key in (ord("c"), ord("C")):
+                seatings.pop(selected, None)
+                history.clear()
+                print(f"{selected.value}: cleared, start again.")
             if key == ord(" ") and angle is not None:
                 if not steady:
                     print("Not steady yet - wait for the reading to settle.")
                 elif selected.is_rotationally_free:
-                    recorded[selected] = 0.0
+                    seatings[selected] = [0.0]
                     print(f"{selected.value}: a circle needs no angle, recorded 0.0")
                 else:
-                    recorded[selected] = statistics.median(history)
-                    print(f"{selected.value}: {recorded[selected]:+.2f} deg")
-            if key == ord("s"):
-                write_yaml(Path(args.out), recorded)
+                    seatings.setdefault(selected, []).append(statistics.median(history))
+                    values = seatings[selected]
+                    period = selected.symmetry_period_deg
+                    play = circular_spread_deg(values, period)
+                    print(f"{selected.value}: seating {len(values)} read "
+                          f"{values[-1]:+.2f}  ->  angle "
+                          f"{circular_mean_deg(values, period):+.2f}, play {play:.2f} deg")
+                    if len(values) < 3:
+                        print("    Lift it out and seat it again - three seatings "
+                              "minimum before the play means anything.")
+                    elif play > LOOSE_SHARE * period:
+                        print(f"    The slot has {play:.1f} deg of play against a "
+                              f"{period:.0f} deg period. Placement must tolerate that.")
+                    # A fresh settle is required for the next seating, so the
+                    # same one cannot be recorded twice by holding SPACE.
+                    history.clear()
+            if key in (ord("s"), ord("S")):
+                write_yaml(Path(args.out), seatings)
     finally:
         source.close()
         cv2.destroyAllWindows()
 
-    write_yaml(Path(args.out), recorded)
+    write_yaml(Path(args.out), seatings)
     return 0
 
 
-def write_yaml(path: Path, recorded: Dict[Shape, float]) -> None:
-    """Write the block to paste into config.yaml."""
-    if not recorded:
+def write_yaml(path: Path, seatings: Dict[Shape, List[float]]) -> None:
+    """Write the block to paste into config.yaml.
+
+    Each angle is the circular mean over the seatings, and the play is carried
+    alongside it as a comment: it is the tolerance every placement of that
+    shape has to live inside, and it is worth seeing when reading the config.
+    """
+    if not seatings:
         print("Nothing recorded.")
         return
 
     lines = ["# Measured with calibration/slot_angles.py.",
              "# Re-measure whenever the jig moves.",
+             "# 'play' is the spread across seatings - the slot's own slack plus",
+             "# measurement noise. The placement must tolerate all of it.",
              "place_slot_angles_deg:"]
-    lines += [f"  {shape.value}: {value:.2f}" for shape, value in recorded.items()]
+    for shape, values in seatings.items():
+        period = shape.symmetry_period_deg
+        angle = circular_mean_deg(values, period) if period else 0.0
+        play = circular_spread_deg(values, period) if period else 0.0
+        note = f"{len(values)} seating(s)"
+        if period and len(values) < 3:
+            note += ", TOO FEW to judge the play"
+        elif period and play > LOOSE_SHARE * period:
+            note += f", LOOSE: {play:.2f} deg of a {period:.0f} deg period"
+        else:
+            note += f", play {play:.2f} deg"
+        lines.append(f"  {shape.value}: {angle:.2f}   # {note}")
     text = "\n".join(lines) + "\n"
 
     path.write_text(text, encoding="utf-8")
