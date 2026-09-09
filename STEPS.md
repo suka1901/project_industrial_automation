@@ -423,12 +423,15 @@ tar -czf ina700-pi.tar.gz \
   pi model/best_ncnn_model model/dataset/yolo/val/images
 ```
 
-Then to the Pi, by network or on a stick:
+Then to the Pi, by network or on a stick. **Both of these run on the PC** —
+the second hands its quoted string to the Pi's shell, so `&&` executes where
+it is understood. Windows PowerShell 5.1 does not accept `&&` itself, and
+pasting a Pi command into it fails to parse the whole block, so nothing runs
+at all, including the line above it.
 
-```bash
+```powershell
 scp ina700-pi.tar.gz pi@<pi-address>:~/
-ssh pi@<pi-address>
-mkdir -p ~/INA700 && tar -xzf ~/ina700-pi.tar.gz -C ~/INA700
+ssh pi@<pi-address> "mkdir -p ~/INA700 && tar -xzf ~/ina700-pi.tar.gz -C ~/INA700"
 ```
 
 > **Rebuild the bundle after any change to `config.yaml`.** Every measured
@@ -436,13 +439,19 @@ mkdir -p ~/INA700 && tar -xzf ~/ina700-pi.tar.gz -C ~/INA700
 > bundle is a Pi running yesterday's calibration, and nothing about it looks
 > wrong.
 
-Then install what the Pi needs and carry on to 4.1:
+Then log in and install what the Pi needs. **From here on every command runs
+on the Pi**, not on the PC:
 
 ```bash
+ssh pi@<pi-address>
 sudo apt install python3-tk
 pip install ncnn pyyaml opencv-python-headless numpy pillow
 # pypylon needs the ARM64 Pylon SDK first - see 4.2
 ```
+
+The Pi's admin address and its robot-network address are usually different
+interfaces - wifi for logging in, ethernet for the robot. Only the second has
+to be `192.168.125.201`; see 4.3.
 
 ## 4.1 Benchmark first
 
