@@ -13,6 +13,11 @@ again, press SPACE again. A shape-matched slot still has play in it, and the
 spread across seatings is the only honest measure of how much. One reading
 cannot tell you whether it is repeatable to a tenth of a degree or to five.
 
+SPACE is refused until the slot has been seen EMPTY since the last seating.
+Recording without lifting the object out just copies one reading, and the
+play then comes out near zero - which looks like a perfect slot and means
+nothing at all.
+
 Keys: R box the slot, 1-5 pick the shape, SPACE record a seating,
       C clear this shape, S save, Q quit.
 
@@ -121,6 +126,12 @@ def main() -> int:
     # them is what says whether a single stored angle can be trusted.
     seatings: Dict[Shape, List[float]] = {}
     history: Deque[float] = deque(maxlen=HISTORY)
+    # A seating only counts once the slot has been seen empty since the last
+    # one. Without this the same seating can be recorded over and over: the
+    # reading re-settles to the identical value and the play comes out near
+    # zero, which looks like a superbly repeatable slot and is really just one
+    # measurement copied thirty times.
+    armed = True
     selected = SELECTABLE[0]
     # One region per shape: each slot sits somewhere different on the jig.
     regions: Dict[Shape, Tuple[int, int, int, int]] = {}
@@ -165,6 +176,8 @@ def main() -> int:
                               (0, 200, 0), 2)
             else:
                 history.clear()
+                # Slot empty: the object is out, so the next one is genuinely new.
+                armed = True
 
             spread = statistics.pstdev(history) if len(history) > 8 else 99.0
             steady = spread < STABLE_DEG
@@ -175,7 +188,8 @@ def main() -> int:
                 if period else f"shape: {selected.value}   no orientation",
                 (f"angle: {angle:+7.2f} deg   spread {spread:.2f}"
                  if angle is not None else "angle: no object in view"),
-                "STEADY - press SPACE to record" if steady else "settling...",
+                ("STEADY - press SPACE to record" if steady else "settling...")
+                if armed else "LIFT THE OBJECT OUT, then seat it again",
                 ("slot boxed" if region is not None
                  else "press R and drag a box round this slot"),
             ]
@@ -218,6 +232,7 @@ def main() -> int:
             if ord("1") <= key <= ord("5"):
                 selected = SELECTABLE[key - ord("1")]
                 history.clear()
+                armed = True
             if key in (ord("r"), ord("R")):
                 title = "drag a box round this slot, then ENTER"
                 chosen = cv2.selectROI(title, shrink(frame.image, scale),
@@ -234,9 +249,13 @@ def main() -> int:
             if key in (ord("c"), ord("C")):
                 seatings.pop(selected, None)
                 history.clear()
+                armed = True
                 print(f"{selected.value}: cleared, start again.")
             if key == ord(" ") and angle is not None:
-                if not steady:
+                if not armed:
+                    print("That would record the same seating again. Lift the "
+                          "object out of the slot, then seat it and try once more.")
+                elif not steady:
                     print("Not steady yet - wait for the reading to settle.")
                 elif selected.is_rotationally_free:
                     seatings[selected] = [0.0]
@@ -255,9 +274,10 @@ def main() -> int:
                     elif play > LOOSE_SHARE * period:
                         print(f"    The slot has {play:.1f} deg of play against a "
                               f"{period:.0f} deg period. Placement must tolerate that.")
-                    # A fresh settle is required for the next seating, so the
-                    # same one cannot be recorded twice by holding SPACE.
+                    # Disarmed until the slot is seen empty again, so the
+                    # same seating cannot be counted twice.
                     history.clear()
+                    armed = False
             if key in (ord("s"), ord("S")):
                 write_yaml(Path(args.out), seatings)
     finally:

@@ -337,6 +337,12 @@ times at least.** A shape-matched slot still has play in it, and the spread
 across seatings is the only honest measure of how much. The `0.5°` settle is
 frame-to-frame camera noise; it says nothing about whether the slot repeats.
 
+The tool refuses `SPACE` until it has seen the slot **empty** since the last
+seating, and the readout says `LIFT THE OBJECT OUT` until then. Without that
+it is easy to record one seating many times over: the reading re-settles to
+the same value, and a `play` near 0.00° looks like a flawless slot while
+meaning nothing.
+
 `C` clears a shape to start it over. `S` saves.
 
 **Expect:** `n=3` or more per shape, and `play` well under a tenth of that
@@ -354,6 +360,7 @@ shape's symmetry period. Paste the saved block into
 | "no object in view" with the slot boxed | The box is on bare plate, or the object is not seated. An empty region is rejected rather than measured |
 | Marked **LOOSE** | The play exceeds 10% of the symmetry period. Not fatal — that slack is also what forgives a sloppy arrival angle — but the placement has to tolerate it |
 | Only `n=1` or `n=2` | Not enough seatings to judge the play at all. Seat it again |
+| `play` of 0.00–0.02° | Not a perfect slot — a re-seat almost certainly did not happen. A hand-seated object cannot repeat to a hundredth of a degree; that is about 0.02 px at the object's edge |
 | Will not settle | Same causes as 2.5 — glare, focus, light. A star is the most sensitive |
 | Star reads wildly | Thin points eroded by thresholding — raise the light, check `padding_px` |
 | Circle refuses an angle | Correct. A circle has no orientation; it records 0 |
