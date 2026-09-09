@@ -3,5 +3,12 @@
 # 'play' is the spread across seatings - the slot's own slack plus
 # measurement noise. The placement must tolerate all of it.
 place_slot_angles_deg:
+  SQUARE: 45.78   # 5 seating(s), play 0.04 deg
+  STAR: 45.31   # 5 seating(s), play 0.18 deg
   CIRCLE: 0.00   # 1 seating(s), play 0.00 deg
-  SQUARE: 49.32   # 1 seating(s), TOO FEW to judge the play
+
+# Not for config.yaml - preflight reads this from here.
+slot_angle_quality:
+  SQUARE: {seatings: 5, play_deg: 0.04}
+  STAR: {seatings: 5, play_deg: 0.18}
+  CIRCLE: {seatings: 1, play_deg: 0.00}

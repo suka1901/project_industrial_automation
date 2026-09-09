@@ -167,10 +167,16 @@ coordinates:
   # Re-measure whenever the jig moves - the angle depends on the jig's
   # rotation, so nudging it round quietly invalidates all of these.
   # The circle is always 0; it has no orientation to get wrong.
+  # Measured 2026-09-09 with calibration/slot_angles.py, five seatings each.
+  # 'play' is the spread across those seatings - the slot's slack plus
+  # measurement noise - and the placement must tolerate all of it.
+  # SQUARE and STAR agree on 45.5 deg to within half a degree despite having
+  # different symmetry periods, which is the jig plate's own rotation showing
+  # through both: independent confirmation that neither is an artefact.
   place_slot_angles_deg:
-    CIRCLE: 0.0
-    SQUARE: 0.0
-    STAR: 0.0
+    CIRCLE: 0.00     # no orientation to measure
+    SQUARE: 45.78    # 5 seatings, play 0.04 deg of a 90 deg period
+    STAR: 45.31      # 5 seatings, play 0.18 deg of a 72 deg period
 
 robot:
   # This file IS the lab profile, so it expects a real robot. The mock and
