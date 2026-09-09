@@ -24,9 +24,11 @@ class VisionPipeline {
 }
 
 class CoordinateService {
-  -pick_depth_mm : float
   -angle_sign : int
+  -angle_offset_deg : float
   -slot_angles : Map<Shape, float>
+  -min_angle_confidence : float
+  +angle_is_trusted(detection) : bool
   +to_pose(detection) : WorldPose
   +to_objects(detections) : List<DetectedObject>
 }
@@ -55,6 +57,7 @@ interface ObjectSelector <<port>> {
 }
 
 class AllowedShapeSelector
+class PickAreaSelector
 class ShapeRequestSelector
 class ColourRequestSelector
 class ConfidenceSelector
@@ -68,6 +71,7 @@ class CompositeSelector {
 }
 
 AllowedShapeSelector ..|> ObjectSelector
+PickAreaSelector ..|> ObjectSelector
 ShapeRequestSelector ..|> ObjectSelector
 ColourRequestSelector ..|> ObjectSelector
 ConfidenceSelector ..|> ObjectSelector
@@ -80,6 +84,14 @@ CycleController --> CoordinateService
 CycleController --> ObjectSelector
 CycleController --> SharedState
 VisionPipeline ..> CoordinateService : "InferenceResult"
+
+note right of PickAreaSelector
+  The jig is in the camera frame so the
+  slot angles can be measured where the
+  objects lie, so objects already placed
+  in it are detected like any other.
+  Keeps only what is on the A3 sheet.
+end note
 
 note left of OrientationConfidenceSelector
   Drops an object whose angle could not be

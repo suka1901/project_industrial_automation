@@ -223,7 +223,6 @@ class Container:
         }
         return CoordinateService(
             mapper=self.build_mapper(),
-            pick_depth_mm=section["pick_depth_mm"],
             angle_sign=section.get("angle_sign", 1),
             angle_offset_deg=section.get("angle_offset_deg", 0.0),
             slot_angles_deg=slot_angles,

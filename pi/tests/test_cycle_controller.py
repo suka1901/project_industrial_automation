@@ -37,7 +37,7 @@ class TestCycleController(unittest.TestCase):
 
         return CycleController(
             get_inference=make_inference,
-            coordinates=CoordinateService(IdentityMapper(), pick_depth_mm=0.0),
+            coordinates=CoordinateService(IdentityMapper()),
             selector=AllowedShapeSelector([Shape.STAR]),
             commander=commander,
             state=SharedState(),

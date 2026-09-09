@@ -154,6 +154,20 @@ class marker <<utility>> {
   +pixel_mm_ratio_from_perimeter(perimeter, length) : float
 }
 
+class angles <<utility>> {
+  +circular_mean_deg(angles, period) : float
+  +circular_spread_deg(angles, period) : float
+}
+
+class Rect <<frozen>> {
+  +min_x : float
+  +min_y : float
+  +max_x : float
+  +max_y : float
+  +from_origin_and_span(origin, span, margin) : Rect
+  +contains(x, y) : bool
+}
+
 Detection *-- PixelPoint
 Detection o-- BoundingBox
 Detection --> Shape

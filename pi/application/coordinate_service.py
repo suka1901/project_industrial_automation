@@ -23,14 +23,12 @@ class CoordinateService:
     def __init__(
         self,
         mapper: CoordinateMapper,
-        pick_depth_mm: float,
         angle_sign: int = 1,
         angle_offset_deg: float = 0.0,
         slot_angles_deg: Dict[Shape, float] | None = None,
         min_angle_confidence: float = 0.10,
     ) -> None:
         self._mapper = mapper
-        self._pick_depth_mm = pick_depth_mm
         self._angle_sign = 1 if angle_sign >= 0 else -1
         self._angle_offset_deg = angle_offset_deg
         self._slot_angles = slot_angles_deg or {}
@@ -62,7 +60,10 @@ class CoordinateService:
         slot_angle = self._slot_angles.get(detection.shape, 0.0)
         rz = place_rotation_deg(object_angle, detection.shape, slot_angle)
 
-        return WorldPose(x=x_mm, y=y_mm, z=self._pick_depth_mm, rz=rz)
+        # Z is always 0: the robot owns the pick height, in PICK_SURFACE_Z_MM.
+        # It has to - the camera sees one plane and cannot measure how thick an
+        # object is - and the protocol carries no Z for that reason.
+        return WorldPose(x=x_mm, y=y_mm, z=0.0, rz=rz)
 
     def to_objects(self, detections: Sequence[Detection]) -> List[DetectedObject]:
         """Map a batch of detections, skipping any the mapper cannot handle."""
