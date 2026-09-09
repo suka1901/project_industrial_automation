@@ -445,15 +445,28 @@ on the Pi**, not on the PC:
 ```bash
 ssh pi@<pi-address>
 sudo apt install python3-tk
-pip install ultralytics ncnn pyyaml opencv-python numpy pillow
+pip install ncnn pyyaml opencv-python numpy pillow
 # pypylon needs the ARM64 Pylon SDK first - see 4.2
 ```
 
-**ultralytics is needed even for NCNN.** `YoloDetector` loads every model
-through `YOLO(path, task="detect")`, whichever format it is; `ncnn` is only
-the backend that then runs it. ultralytics pulls in torch, which is a large
-download on ARM - if it will not install, or the benchmark comes back FAIL,
-see the note at the end of 4.1.
+**No ultralytics and no torch on the Pi.** `profiles/pi.yaml` uses
+`detector.kind: ncnn`, which runs the exported model on the 12 MB ncnn runtime
+directly. `kind: yolo` would load through ultralytics, and ultralytics needs
+torch — whose aarch64 wheel bundles roughly 2 GB of NVIDIA CUDA libraries for
+a board with no GPU. It fills the Pi's disk before it finishes.
+
+> **The NCNN export must match the installed ncnn.** They are versioned by
+> date and the exporter is bundled with ultralytics, so a model exported by an
+> older ultralytics builds the wrong graph: `Concat` joins on the wrong axis
+> and the run segfaults in `Slice`, two layers before the output, reporting
+> nothing at all. Re-export on the PC whenever ncnn is upgraded:
+>
+> ```powershell
+> python -c "from ultralytics import YOLO; YOLO('model/best.pt').export(format='ncnn', imgsz=640)"
+> ```
+>
+> Then check `pip show ncnn` on the Pi matches the `NCNN 1.0.YYYYMMDD` line the
+> export printed.
 
 The Pi's admin address and its robot-network address are usually different
 interfaces - wifi for logging in, ethernet for the robot. Only the second has
@@ -484,12 +497,18 @@ PASS - worst case is under 1800 ms, comfortably inside budget
 Write down the warm-up figure — the system really is unavailable that long at
 start-up. **Re-run this after every retrain.**
 
-> **If torch will not install, or FAIL survives a 480 re-export.** ultralytics
-> is only the *loader*: `ObjectDetector` is a port, and `detector.kind` in
-> config already chooses the adapter. A second adapter calling the `ncnn`
-> package directly would drop torch entirely, cutting both the install and the
-> warm-up sharply. It is real work — letterboxing, output decoding and NMS by
-> hand — so it is the fallback, not the first move.
+`NcnnDetector` does by hand what ultralytics used to do around the model —
+letterboxing in, then decoding, thresholding and non-maximum suppression out.
+Measured against the labels on the 55 held-out photos:
+
+| `detector.confidence` | recall | precision |
+|---|---|---|
+| 0.50 (the Pi default) | 92.1% | 96.3% |
+| 0.60 (the PC default) | 88.6% | 97.1% |
+
+Mean IoU of matched boxes is 0.907, which is the number that says the
+letterbox transform is undone correctly — a wrong one shows up as boxes
+offset or scaled, not as boxes missing.
 
 ## 4.2 Camera
 
@@ -502,7 +521,8 @@ python3 tools/preflight.py --config config/profiles/pi.yaml
 | `no Basler camera detected` | USB3 port and cable — the Pi's USB2 ports will not carry this camera |
 | `pypylon not installed` | Pylon SDK for **ARM64**, then the pypylon wheel |
 | `No module named 'ncnn'` | `pip install ncnn` — the Pi profile needs it, a laptop using `best.pt` does not |
-| `No module named 'ultralytics'` | `pip install ultralytics` — required for NCNN too, it is what loads the model |
+| `No module named 'ultralytics'` | The Pi should not need it. Check `detector.kind` is `ncnn`, not `yolo` |
+| Segfault, or the run dies with no message | The NCNN export does not match the installed ncnn. Re-export — see 4.0 |
 | `tkinter` fails | `sudo apt install python3-tk` |
 
 ## 4.3 Network and run

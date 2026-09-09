@@ -12,4 +12,19 @@ extends: ../config.yaml
 profile: pi
 
 detector:
+  # ncnn, not yolo: the YoloDetector loads through ultralytics whatever the
+  # format, and ultralytics needs torch - whose aarch64 wheel bundles about
+  # 2 GB of CUDA libraries for a board with no NVIDIA GPU. NcnnDetector runs
+  # the same exported model on the 12 MB ncnn runtime instead.
+  #
+  # The export must come from a pnnx matching the installed ncnn. A mismatch
+  # builds the wrong graph and segfaults in Slice, two layers before the
+  # output, without reporting anything. Re-export with:
+  #   YOLO('model/best.pt').export(format='ncnn', imgsz=640)
+  kind: ncnn
   model_path: ../model/best_ncnn_model
+  num_threads: 4
+  # Measured on the 55 held-out photos, matching against the labels:
+  #   conf 0.50  recall 92.1%  precision 96.3%
+  #   conf 0.60  recall 88.6%  precision 97.1%
+  confidence: 0.5

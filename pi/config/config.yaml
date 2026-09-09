@@ -30,7 +30,7 @@ camera:
   show_window: false     # true shows the raw feed while aiming
 
 detector:
-  kind: yolo             # mock | yolo
+  kind: yolo            # yolo (ultralytics) | ncnn (no torch) | mock             # mock | yolo
   model_path: ../model/best.pt      # or best_ncnn_model for the Pi
   # Must equal the imgsz the model was trained at (model/train_yolo.ipynb).
   # Objects are about 250 px in the 2448 px frame, so 640 keeps them at 65 px.

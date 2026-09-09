@@ -104,6 +104,24 @@ class Container:
                 confidence=section.get("confidence", 0.5),
             )
 
+        if kind == "ncnn":
+            # The Pi's detector: same model, no torch. ultralytics is only the
+            # loader, and its torch dependency pulls ~2 GB of CUDA onto a board
+            # with no GPU. See adapters/detection/ncnn_detector.py.
+            from adapters.detection.ncnn_detector import NcnnDetector
+            class_map = {
+                int(index): Shape.from_name(name)
+                for index, name in section["class_map"].items()
+            }
+            return NcnnDetector(
+                model_dir=self._path(section["model_path"]),
+                class_map=class_map,
+                image_size=section.get("image_size", 640),
+                confidence=section.get("confidence", 0.5),
+                iou_threshold=section.get("iou_threshold", 0.45),
+                num_threads=section.get("num_threads", 4),
+            )
+
         if kind == "mock":
             from adapters.detection.mock_detector import MockDetector
             return MockDetector(self.shapes)
