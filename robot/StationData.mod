@@ -75,9 +75,18 @@ MODULE StationData
     !--- Picking height ---------------------------------------------------
     ! Height in wobj1 where the cup meets the top of an object. One value,
     ! because every object is the same thickness.
-    ! MEASURE THIS: teach one pick point with an object under the cup and
-    ! replace the number. Grip reliability is this figure.
-    CONST num PICK_SURFACE_Z_MM := 2.7;
+    !
+    ! 10 mm is DERIVED, not taught: wobj1's Z=0 is the sheet surface and the
+    ! objects are 10 mm thick, so the cup meets the top at 10. It errs safely
+    ! in both directions - a millimetre high just fails to seal, a millimetre
+    ! low presses slightly and seals better - but grip reliability is this
+    ! figure, so confirm it on the first picks:
+    !
+    !   cup does not seal, object left behind  -> lower it 0.5 mm at a time
+    !   cup presses hard, object shifts        -> raise it 0.5 mm at a time
+    !
+    ! Re-teach it properly if wobj1 is ever redefined.
+    CONST num PICK_SURFACE_Z_MM := 10;
 
     !--- Picking area limits ----------------------------------------------
     ! The A3 sheet is the work surface. Objects are only ever picked from it,
