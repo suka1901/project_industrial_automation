@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
+from domain.area import Rect
 from domain.enums import Colour, Shape
 from domain.models import PickRequest
 from ports.interfaces import ObjectSelector
@@ -21,6 +22,24 @@ class AllowedShapeSelector(ObjectSelector):
 
     def select(self, objects, request: PickRequest):
         return [o for o in objects if o.shape in self._allowed]
+
+
+class PickAreaSelector(ObjectSelector):
+    """Keeps only objects lying on the picking sheet.
+
+    The jig is deliberately in the camera frame so the slot angles can be
+    measured where the objects lie, which means an object already placed in a
+    slot is detected exactly like one waiting to be picked. RAPID refuses an
+    off-board position anyway, but a refusal costs the whole cycle: the same
+    jig object is nearest again on the retry, and all three attempts go the
+    same way. Better never to offer it.
+    """
+
+    def __init__(self, area: Rect) -> None:
+        self._area = area
+
+    def select(self, objects, request: PickRequest):
+        return [o for o in objects if self._area.contains(o.pose.x, o.pose.y)]
 
 
 class ShapeRequestSelector(ObjectSelector):

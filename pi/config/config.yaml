@@ -78,6 +78,22 @@ colour:
   white_of_paper: 0.80
   black_of_paper: 0.45
 
+# --- the picking sheet ------------------------------------------------------
+# The A3 sheet, in picking work object millimetres. wobj1's origin sits ON the
+# sheet corner with X along the 420 mm edge, so this is 0,0 and 420x297 by
+# construction - the same values as SHEET_ORIGIN/SHEET_SPAN in StationData.mod.
+#
+# This is what keeps objects already sitting in the JIG from being offered as
+# picking candidates. The jig is in the camera frame on purpose, so the vision
+# system sees those objects and must be told they are not pickable. RAPID
+# refuses an off-board position too, but a refusal wastes the whole cycle.
+sheet:
+  origin_xy_mm: [0.0, 0.0]
+  span_xy_mm: [420.0, 297.0]
+  # Generous: it only has to stay well clear of the jig, and an object half
+  # off the paper is still on the table and still worth picking.
+  margin_mm: 20.0
+
 # --- ArUco reference marker (README requirement) ----------------------------
 # A 5x5 marker is fixed on the table. Its four corners give the pixel-to-
 # millimetre mapping every frame, so a nudged camera corrects itself.

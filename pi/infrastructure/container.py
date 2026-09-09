@@ -17,8 +17,9 @@ from application.selectors import (
     ColourRequestSelector,
     CompositeSelector,
     ConfidenceSelector,
-    OrientationConfidenceSelector,
     NearestToOriginSorter,
+    OrientationConfidenceSelector,
+    PickAreaSelector,
     ShapeRequestSelector,
 )
 from application.vision_pipeline import VisionPipeline
@@ -235,10 +236,22 @@ class Container:
         """How close a leftover object must be to count as a failed pick."""
         return float(self._config["robot"].get("verify_tolerance_mm", 0.0))
 
+    @property
+    def pick_area(self):
+        """The sheet, as a rectangle in picking work object millimetres."""
+        from domain.area import Rect
+        section = self._config.get("sheet", {})
+        return Rect.from_origin_and_span(
+            tuple(section.get("origin_xy_mm", [0.0, 0.0])),
+            section.get("span_xy_mm", [420.0, 297.0]),
+            margin=section.get("margin_mm", 20.0),
+        )
+
     def build_selector(self) -> ObjectSelector:
         """Chain the selection rules. Adding a rule = adding one line here."""
         return CompositeSelector([
             AllowedShapeSelector(self.shapes),          # never touch the other two
+            PickAreaSelector(self.pick_area),           # the jig is in frame too
             ConfidenceSelector(self._config["vision"].get("min_confidence", 0.5)),
             OrientationConfidenceSelector(
                 self._config.get("orientation", {})
