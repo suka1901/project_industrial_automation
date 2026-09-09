@@ -20,21 +20,31 @@ MODULE StationData
     !--- Work objects -----------------------------------------------------
     ! wobj1 is the A3 sheet, the frame the camera measures in.
     ! wobj2 is the placing jig. Two work objects, as the assignment requires.
+    ! Taught 2026-09-09. wobj1's origin is ON the corner of the A3 sheet with
+    ! X along the 420 mm edge, which is why SHEET_ORIGIN below is 0,0.
     TASK PERS wobjdata wobj1:=[FALSE,TRUE,"",
-        [[610.644,-338.06,2.86545],[0.999893,-0.012613,0.00614853,0.00412147]],
+        [[452.084,-294.953,-12.6039],
+         [0.999985,-0.00286025,0.00463156,7.67918E-06]],
         [[0,0,0],[1,0,0,0]]];
     TASK PERS wobjdata wobj2:=[FALSE,TRUE,"",
-        [[606.487,221.202,2.06637],[0.999954,0.00362135,0.00617943,0.00640069]],
+        [[603.794,191.391,-1.66908],
+         [0.999953,-0.00799821,-0.00134328,0.0052535]],
         [[0,0,0],[1,0,0,0]]];
 
     !--- Positions --------------------------------------------------------
     ! Five placing targets plus one approach and one home - exactly the budget
     ! the assignment allows.
-    CONST robtarget Phome:=[[-62.06,293.24,107.36],
-        [0.0144604,0.110376,-0.993465,-0.0252167],[-1,0,-1,0],
+    ! Taught 2026-09-09 against the wobj1 above.
+    CONST robtarget Phome:=[[114.95,277.26,163.28],
+        [0.00373083,0.00468543,-0.99993,0.0101865],[-1,-1,-1,0],
         [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget Papproach:=[[-0.67,336.45,29.81],
-        [0.014461,0.110376,-0.993465,-0.0252119],[-1,0,-1,0],
+
+    ! Papproach is more than a waypoint: PickTargetFor copies it and overwrites
+    ! only X, Y and Z, so its ORIENTATION is inherited by every computed pick.
+    ! Measured 1.24 deg off straight down, which costs about 0.2 mm of lateral
+    ! drift over a 10 mm descent. Re-teach it if the cup is ever remounted.
+    CONST robtarget Papproach:=[[178.25,183.91,56.62],
+        [0.00374539,0.00469495,-0.99993,0.0101858],[-1,-1,-1,0],
         [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
 
     CONST robtarget p10:=[[30.12,28.62,-0.23],
