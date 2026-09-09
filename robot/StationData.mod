@@ -47,20 +47,30 @@ MODULE StationData
         [0.00374539,0.00469495,-0.99993,0.0101858],[-1,-1,-1,0],
         [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
 
-    CONST robtarget p10:=[[30.12,28.62,-0.23],
-        [0.0144628,0.110404,-0.993463,-0.0251784],[-1,-1,-1,0],
+    ! Taught 2026-09-09 at the jig, but WITH WOBJ1 ACTIVE, then converted into
+    ! wobj2 - which is what MainModule places against. The conversion goes via
+    ! base coordinates and is exact: the robot multiplies by wobj2 again at run
+    ! time, so each target lands on the same physical slot that was taught, and
+    ! any error in wobj2 itself cancels rather than accumulating.
+    ! Used as wobj2 values without converting, they would have been about
+    ! 490 mm from the jig.
+    CONST robtarget p10:=[[28.38,38.47,3.37],
+        [0.009800,-0.000384,-0.999939,0.005030],[0,-1,0,0],
         [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget p30:=[[153.79,26.47,3.87],
-        [0.0144558,0.110389,-0.993464,-0.0251888],[-1,-1,-1,0],
+    CONST robtarget p30:=[[158.57,32.35,4.50],
+        [0.009803,-0.000374,-0.999939,0.005041],[0,-1,0,0],
         [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget p40:=[[38.30,150.06,3.11],
-        [0.0144435,0.110374,-0.993466,-0.0251758],[-1,0,-1,0],
+    ! Triangle duplicates the square's slot. Harmless - the server only ever
+    ! sends circle, square and star - but the array must hold five valid
+    ! targets to compile, and a duplicate is safer than an untaught one.
+    CONST robtarget p40:=[[28.38,38.47,3.37],
+        [0.009801,-0.000385,-0.999939,0.005030],[0,-1,0,0],
         [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget p50:=[[150.69,135.56,5.20],
-        [0.0145033,0.110326,-0.993469,-0.0252387],[-1,0,-1,0],
+    CONST robtarget p50:=[[152.52,142.87,3.22],
+        [0.009816,-0.000409,-0.999938,0.005033],[0,-1,0,0],
         [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
-    CONST robtarget p60:=[[91.66,86.91,1.39],
-        [0.0144915,0.110364,-0.993465,-0.0252398],[-1,0,-1,0],
+    CONST robtarget p60:=[[94.63,91.25,4.54],
+        [0.009821,-0.000396,-0.999938,0.005040],[0,-1,0,0],
         [9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];
 
     !--- Object catalogue -------------------------------------------------
