@@ -29,6 +29,8 @@ sys.path.insert(0, str(BASE_DIR))
 from domain.enums import Shape  # noqa: E402
 from domain.models import BoundingBox, Detection  # noqa: E402
 from domain.enums import Colour  # noqa: E402
+from calibration.view import (display_scale, shrink,  # noqa: E402
+                              to_full_resolution)
 
 SELECTABLE: List[Shape] = list(Shape)
 HISTORY = 40           # frames of history behind the stability readout
@@ -97,6 +99,8 @@ def main() -> int:
     parser.add_argument("--camera", default="basler", choices=("basler", "file"))
     parser.add_argument("--path", default=None)
     parser.add_argument("--out", default=str(BASE_DIR / "calibration" / "slot_angles.yaml"))
+    parser.add_argument("--display-width", type=int, default=1100,
+                        help="preview width in pixels; the measurement stays full size")
     args = parser.parse_args()
 
     from adapters.detection.orientation_estimator import HarmonicOrientationEstimator
@@ -118,13 +122,20 @@ def main() -> int:
             if frame is None or frame.image is None:
                 continue
 
-            canvas = frame.image.copy()
+            # Everything below measures frame.image at full resolution; the
+            # canvas is only what the operator looks at.
+            scale = display_scale(frame.image, args.display_width)
+            canvas = shrink(frame.image, scale)
+
             region = regions.get(selected)
             box = largest_object_box(frame.image, region)
 
             if region is not None:
                 x, y, w, h = region
-                cv2.rectangle(canvas, (x, y), (x + w, y + h), (255, 180, 0), 2)
+                cv2.rectangle(canvas,
+                              (int(x * scale), int(y * scale)),
+                              (int((x + w) * scale), int((y + h) * scale)),
+                              (255, 180, 0), 2)
 
             angle: Optional[float] = None
             if box is not None:
@@ -136,8 +147,9 @@ def main() -> int:
                 history.append(angle)
 
                 cv2.rectangle(canvas,
-                              (int(box.u_min), int(box.v_min)),
-                              (int(box.u_max), int(box.v_max)), (0, 200, 0), 2)
+                              (int(box.u_min * scale), int(box.v_min * scale)),
+                              (int(box.u_max * scale), int(box.v_max * scale)),
+                              (0, 200, 0), 2)
             else:
                 history.clear()
 
@@ -176,12 +188,15 @@ def main() -> int:
                 selected = SELECTABLE[key - ord("1")]
                 history.clear()
             if key in (ord("r"), ord("R")):
-                chosen = cv2.selectROI(
-                    "drag a box round this slot, then ENTER", frame.image,
-                    showCrosshair=False)
-                cv2.destroyWindow("drag a box round this slot, then ENTER")
+                title = "drag a box round this slot, then ENTER"
+                chosen = cv2.selectROI(title, shrink(frame.image, scale),
+                                       showCrosshair=False)
+                cv2.destroyWindow(title)
                 # A zero-width selection means the operator pressed ESC.
-                regions[selected] = tuple(int(v) for v in chosen) if chosen[2] and chosen[3] else None
+                # The box is drawn on the shrunken preview, so it must be
+                # scaled back up before it can search the real frame.
+                regions[selected] = (to_full_resolution(chosen, scale)
+                                     if chosen[2] and chosen[3] else None)
                 if regions[selected] is None:
                     regions.pop(selected, None)
                 history.clear()

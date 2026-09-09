@@ -16,6 +16,9 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
 
+from calibration.view import display_scale, shrink  # noqa: E402
+
+
 def marker_length_from_config(default: float = 100.0) -> float:
     """Marker size from config.yaml, so the tool runs with no arguments."""
     try:
@@ -90,7 +93,8 @@ def main() -> int:
 
             cv2.putText(image, text, (12, 32), cv2.FONT_HERSHEY_SIMPLEX,
                         0.7, colour, 2)
-            cv2.imshow("ArUco check - press q to quit", image)
+            cv2.imshow("ArUco check - press q to quit",
+                       shrink(image, display_scale(image)))
 
             if (cv2.waitKey(20) & 0xFF) == ord("q"):
                 break
