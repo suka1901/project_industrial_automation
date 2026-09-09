@@ -68,7 +68,9 @@ colour:
   kind: hsv              # hsv | passthrough (passthrough = offline mock only)
   min_saturation: 80
   min_value: 50
-  min_fraction: 0.25
+  # Share of the OBJECT's own pixels one hue must cover to name it. Measured:
+  # real colours cover 20-100%, hue noise on a black object under 1.4%.
+  min_fraction: 0.10
   # White and black have no hue, so they are judged on brightness against the
   # paper instead. Fractions of the paper's own level, so they hold as the
   # lighting moves.

@@ -34,7 +34,7 @@ class HsvColourClassifier(ColourClassifier):
         hue_ranges: Dict[Colour, Tuple[Tuple[int, int], ...]] | None = None,
         min_saturation: int = 80,
         min_value: int = 50,
-        min_fraction: float = 0.25,
+        min_fraction: float = 0.10,
         achromatic_max_saturation: int = 70,
         white_of_paper: float = 0.80,
         black_of_paper: float = 0.45,
@@ -44,6 +44,9 @@ class HsvColourClassifier(ColourClassifier):
         self._min_saturation = min_saturation
         self._min_value = min_value
         # If no colour covers this share of the object, report UNKNOWN.
+        # Measured on the labelled photos: real colours cover 20-100% of their
+        # object, hue noise on a black one covers under 1.4%. 0.10 sits in the
+        # empty gap between, about seven times above the noise.
         self._min_fraction = min_fraction
         self._achromatic_max_saturation = achromatic_max_saturation
         # Fractions of the paper's own brightness, not absolute levels, so the
@@ -81,17 +84,24 @@ class HsvColourClassifier(ColourClassifier):
 
         # Only count object pixels that are actually coloured and lit.
         valid = inside & (sat >= self._min_saturation) & (val >= self._min_value)
-        total = int(np.count_nonzero(valid))
-        if total == 0:
+        if not valid.any():
             # No hue anywhere: the object is white, black or grey.
             return self._achromatic(frame.image, val, inside, np)
+
+        # Divide by the OBJECT's pixels, not by the ones that happen to be
+        # saturated. A black object correctly rejects almost all of its pixels
+        # as hueless, and dividing by the few left over let six noisy pixels
+        # out of 8588 name it BLUE with a "fraction" of 0.75. Measured on the
+        # labelled photos, 13% of objects were being coloured on under 5% of
+        # their own pixels that way, 28 of them called blue.
+        object_pixels = int(np.count_nonzero(inside))
 
         best_colour, best_fraction = Colour.UNKNOWN, 0.0
         for colour, bands in self._ranges.items():
             mask = np.zeros_like(valid)
             for low, high in bands:
                 mask |= (hue >= low) & (hue <= high)
-            fraction = int(np.count_nonzero(mask & valid)) / total
+            fraction = int(np.count_nonzero(mask & valid)) / object_pixels
             if fraction > best_fraction:
                 best_colour, best_fraction = colour, fraction
 

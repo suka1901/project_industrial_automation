@@ -155,8 +155,11 @@ class TkView(View):
     def _render_preview(self, preview) -> None:
         """Draw the newest frame with a box round each detection.
 
-        Only the shape and confidence are drawn. The millimetre values live in
+        Shape, colour and confidence are drawn; the millimetre values live in
         the table, and repeating them over the image makes both harder to read.
+        Colour belongs here rather than only in the table: seeing the name on
+        the object itself is what catches a misread, which reading it off a row
+        and matching it back to a box does not.
         """
         if preview is None or preview.image is None:
             return
@@ -174,7 +177,10 @@ class TkView(View):
             top_left = (int(box.u_min), int(box.v_min))
             bottom_right = (int(box.u_max), int(box.v_max))
             cv2.rectangle(image, top_left, bottom_right, self.BOX_COLOUR, 3)
-            cv2.putText(image, f"{detection.shape.value} {detection.confidence:.2f}",
+            label = (f"{detection.shape.value.lower()} "
+                     f"{detection.colour.value.lower()} "
+                     f"{detection.confidence:.2f}")
+            cv2.putText(image, label,
                         (top_left[0], max(18, top_left[1] - 8)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.BOX_COLOUR, 2)
 

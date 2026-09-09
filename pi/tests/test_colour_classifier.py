@@ -95,5 +95,55 @@ class TestColourUsesTheObjectNotTheBox(unittest.TestCase):
         self.assertIs(HsvColourClassifier().classify(frame, detection()), Colour.WHITE)
 
 
+class TestHueNoiseCannotNameAnObject(unittest.TestCase):
+    """A few stray saturated pixels must not decide a hueless object's colour.
+
+    This is the regression that mattered in the lab: black objects were coming
+    out BLUE. The share of the object showing a hue was being divided by the
+    pixels that happened to be saturated rather than by the object, so on a
+    black object - which correctly rejects nearly all of its pixels as hueless
+    - a handful of noisy ones scored a "fraction" near 1.0 and won.
+    """
+
+    def _black_object_with_noise(self, noisy_pixels: int) -> Frame:
+        """A black object with a few dark, blue-tinted pixels in it.
+
+        The tint has to be DARK to reproduce the real fault. A bright blue
+        speck falls outside the object mask and never reaches the hue test at
+        all, so it proves nothing. Camera noise on a black object is dark and
+        saturated - which is exactly what slips through.
+        """
+        image = np.full((200, 200, 3), 200, dtype=np.uint8)
+        image[85:115, 85:115] = (20, 20, 20)              # the object
+        flat = image[85:115, 85:115].reshape(-1, 3)
+        flat[:noisy_pixels] = (70, 20, 20)                # dark, saturated, blue
+        image[85:115, 85:115] = flat.reshape(30, 30, 3)
+        return Frame(image=image, sequence=0, captured_at=0.0)
+
+    def test_a_black_object_with_blue_specks_is_black(self):
+        frame = self._black_object_with_noise(noisy_pixels=8)
+        self.assertIs(HsvColourClassifier().classify(frame, detection()), Colour.BLACK)
+
+    def test_still_black_when_every_saturated_pixel_is_blue(self):
+        """The old code scored this 1.00 and called it BLUE. It is 2% of the
+        object, so the fixed denominator puts it far below the 0.10 floor."""
+        frame = self._black_object_with_noise(noisy_pixels=20)
+        self.assertIs(HsvColourClassifier().classify(frame, detection()), Colour.BLACK)
+
+    def test_a_genuinely_blue_object_is_still_blue(self):
+        """The fix must not cost real colours - the other half of the trade."""
+        self.assertIs(HsvColourClassifier().classify(frame_with((220, 0, 0)), detection()),
+                      Colour.BLUE)
+
+    def test_a_partly_shadowed_colour_survives(self):
+        """Only a third of the object is lit enough to show hue, which is well
+        above the 10% floor and must still be named."""
+        image = np.full((200, 200, 3), 200, dtype=np.uint8)
+        image[80:120, 80:120] = (60, 0, 0)       # too dark to pass min_value
+        image[80:95, 80:120] = (220, 0, 0)       # the lit third
+        frame = Frame(image=image, sequence=0, captured_at=0.0)
+        self.assertIs(HsvColourClassifier().classify(frame, detection()), Colour.BLUE)
+
+
 if __name__ == "__main__":
     unittest.main()

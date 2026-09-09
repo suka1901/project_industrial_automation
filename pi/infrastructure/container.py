@@ -132,7 +132,7 @@ class Container:
         return HsvColourClassifier(
             min_saturation=section.get("min_saturation", 80),
             min_value=section.get("min_value", 50),
-            min_fraction=section.get("min_fraction", 0.25),
+            min_fraction=section.get("min_fraction", 0.10),
             achromatic_max_saturation=section.get("achromatic_max_saturation", 70),
             white_of_paper=section.get("white_of_paper", 0.80),
             black_of_paper=section.get("black_of_paper", 0.45),
