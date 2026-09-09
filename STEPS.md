@@ -445,9 +445,15 @@ on the Pi**, not on the PC:
 ```bash
 ssh pi@<pi-address>
 sudo apt install python3-tk
-pip install ncnn pyyaml opencv-python-headless numpy pillow
+pip install ultralytics ncnn pyyaml opencv-python numpy pillow
 # pypylon needs the ARM64 Pylon SDK first - see 4.2
 ```
+
+**ultralytics is needed even for NCNN.** `YoloDetector` loads every model
+through `YOLO(path, task="detect")`, whichever format it is; `ncnn` is only
+the backend that then runs it. ultralytics pulls in torch, which is a large
+download on ARM - if it will not install, or the benchmark comes back FAIL,
+see the note at the end of 4.1.
 
 The Pi's admin address and its robot-network address are usually different
 interfaces - wifi for logging in, ethernet for the robot. Only the second has
@@ -478,6 +484,13 @@ PASS - worst case is under 1800 ms, comfortably inside budget
 Write down the warm-up figure — the system really is unavailable that long at
 start-up. **Re-run this after every retrain.**
 
+> **If torch will not install, or FAIL survives a 480 re-export.** ultralytics
+> is only the *loader*: `ObjectDetector` is a port, and `detector.kind` in
+> config already chooses the adapter. A second adapter calling the `ncnn`
+> package directly would drop torch entirely, cutting both the install and the
+> warm-up sharply. It is real work — letterboxing, output decoding and NMS by
+> hand — so it is the fallback, not the first move.
+
 ## 4.2 Camera
 
 ```bash
@@ -489,6 +502,7 @@ python3 tools/preflight.py --config config/profiles/pi.yaml
 | `no Basler camera detected` | USB3 port and cable — the Pi's USB2 ports will not carry this camera |
 | `pypylon not installed` | Pylon SDK for **ARM64**, then the pypylon wheel |
 | `No module named 'ncnn'` | `pip install ncnn` — the Pi profile needs it, a laptop using `best.pt` does not |
+| `No module named 'ultralytics'` | `pip install ultralytics` — required for NCNN too, it is what loads the model |
 | `tkinter` fails | `sudo apt install python3-tk` |
 
 ## 4.3 Network and run
