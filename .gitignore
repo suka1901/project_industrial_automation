@@ -43,3 +43,6 @@ pi/logs/*.log
 
 # Desktop scratch folder, not part of the project.
 Claude outputs/
+
+# Deployment bundle for the Pi, rebuilt on demand.
+ina700-pi.tar.gz

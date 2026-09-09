@@ -397,6 +397,53 @@ In `pi/config/config.yaml`: `robot.verify_tolerance_mm: 15.0`.
 
 The Pi is set up in the lab, so this is a normal deployment.
 
+## 4.0 Getting the code across
+
+There is no git remote, and the weights are gitignored anyway, so this is a
+file copy. Copy the *bundle*, not the folder: the dataset is 2.6 GB and the Pi
+needs 19 MB of it.
+
+| The Pi needs | Why |
+|---|---|
+| `pi/` | the code, and `config.yaml` with every measured value in it |
+| `model/best_ncnn_model/` | the detector. 2–3x faster than `best.pt` on ARM |
+| `model/dataset/yolo/val/images/` | 55 photos, only so 4.1 can run without a camera |
+
+| It does not need | |
+|---|---|
+| `model/dataset/raw/` and `label/` | 2.5 GB of training photos |
+| `model/best.pt` | the Pi profile uses NCNN |
+| `robot/`, `docs/` | the controller's files, and the diagrams |
+
+On the PC, from the project root:
+
+```bash
+tar -czf ina700-pi.tar.gz \
+  --exclude='__pycache__' --exclude='*.pyc' --exclude='pi/logs/*.log' \
+  pi model/best_ncnn_model model/dataset/yolo/val/images
+```
+
+Then to the Pi, by network or on a stick:
+
+```bash
+scp ina700-pi.tar.gz pi@<pi-address>:~/
+ssh pi@<pi-address>
+mkdir -p ~/INA700 && tar -xzf ~/ina700-pi.tar.gz -C ~/INA700
+```
+
+> **Rebuild the bundle after any change to `config.yaml`.** Every measured
+> value travels inside it — marker centre, slot angles, exposure. A stale
+> bundle is a Pi running yesterday's calibration, and nothing about it looks
+> wrong.
+
+Then install what the Pi needs and carry on to 4.1:
+
+```bash
+sudo apt install python3-tk
+pip install ncnn pyyaml opencv-python-headless numpy pillow
+# pypylon needs the ARM64 Pylon SDK first - see 4.2
+```
+
 ## 4.1 Benchmark first
 
 ```bash
