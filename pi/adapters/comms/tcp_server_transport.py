@@ -23,7 +23,7 @@ class TcpServerTransport(RobotTransport):
 
     def __init__(
         self,
-        host: str = "192.168.125.201",
+        host: str = "0.0.0.0",
         port: int = 5000,
         accept_timeout_s: float = 60.0,
         encoding: str = "utf-8",
@@ -50,7 +50,23 @@ class TcpServerTransport(RobotTransport):
         self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Allows an immediate restart after a crash instead of "address in use".
         self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._server.bind((self._host, self._port))
+        try:
+            self._server.bind((self._host, self._port))
+        except OSError as exc:
+            # errno 10049 on Windows (WSAEADDRNOTAVAIL), 99 on Linux. The
+            # message the OS gives is unhelpful and may not even be in English,
+            # so say what is actually wrong: the server binds an address of
+            # THIS machine, and this one is not on any local adapter.
+            if getattr(exc, "winerror", None) == 10049 or exc.errno in (99, 49):
+                raise OSError(
+                    f"Cannot bind {self._host}:{self._port} - no network adapter "
+                    f"on this machine has the address {self._host}. Check it with "
+                    f"'ipconfig' (Windows) or 'ip addr' (Linux), or set "
+                    f"robot.host to 0.0.0.0 in config.yaml to listen on every "
+                    f"interface. The robot dials in to this machine, so this is "
+                    f"THIS machine's address, not the robot's."
+                ) from exc
+            raise
         self._server.listen(1)
         self._server.settimeout(self._accept_timeout_s)
 

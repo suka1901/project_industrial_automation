@@ -437,8 +437,36 @@ python3 tools/preflight.py --config config/profiles/pi.yaml
 
 ## 4.3 Network and run
 
-Set `robot.host` in `config/profiles/pi.yaml` to the Pi's own address on the robot
-network, and confirm the robot reaches it.
+`robot.host` is `0.0.0.0`, so the server listens on every interface and needs no
+editing when it moves from the PC to the Pi.
+
+What does need checking is the other direction. The robot **dials in** to a
+fixed address written in `ServerCommuncatio.sys` line 52:
+
+```rapid
+SocketConnect robotClient, "192.168.125.201", 5000;
+```
+
+So whichever machine runs the server has to *hold* that address. The rule for
+this cell: **the machine running the server takes 192.168.125.201** — the PC
+during development, the Pi at the exam. One number, in one file, and nothing
+to edit on the day.
+
+```bash
+ip addr        # Linux / Pi
+ipconfig       # Windows
+```
+
+| What you see | What it means |
+|---|---|
+| The robot-network adapter shows `192.168.125.201` | Correct. Run it |
+| A different `192.168.125.x` | Set that adapter static to `.201`, or change line 52 to match. Do not leave them disagreeing |
+| No `192.168.125.x` at all | The cable is out, or the adapter is on DHCP with no server. An adapter that is down has no address at all |
+| `WinError 10049` / `EADDRNOTAVAIL` on start | Only happens if `robot.host` was pinned to an address this machine lacks. `0.0.0.0` cannot produce it |
+
+```bash
+python3 main.py --config config/profiles/pi.yaml
+```
 
 ```bash
 python3 main.py --config config/profiles/pi.yaml

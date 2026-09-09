@@ -91,7 +91,7 @@ def main() -> int:
                 text = "no marker detected"
                 colour = (0, 0, 255)
 
-            cv2.putText(image, text, (12, 32), cv2.FONT_HERSHEY_SIMPLEX,
+            cv2.putText(image, text, (36, 32), cv2.FONT_HERSHEY_SIMPLEX,
                         0.7, colour, 2)
             cv2.imshow("ArUco check - press q to quit",
                        shrink(image, display_scale(image)))

@@ -176,12 +176,20 @@ robot:
   # This file IS the lab profile, so it expects a real robot. The mock and
   # offline profiles override this to loopback.
   transport: tcp         # loopback | tcp
-  # Address of THIS machine - the one running the server. The robot dials out
-  # to it. Verified working on the PC at .201; on the Raspberry Pi it will be
-  # the Pi's own address, so check with ipconfig / ip addr before the exam.
-  # "0.0.0.0" binds every interface and accepts the robot whatever address it
-  # uses - the safest setting if the network is ever in doubt.
-  host: 192.168.125.201
+  # The address THIS machine listens on - the robot dials in to us, so this
+  # is never the robot's address.
+  #
+  # 0.0.0.0 means every interface. That is deliberate rather than lazy: the
+  # server runs on the PC during development and on the Raspberry Pi at the
+  # exam, and those have different addresses, so a fixed one here is a file
+  # that must be edited on the day. Binding a specific address that no adapter
+  # holds fails with WinError 10049 / EADDRNOTAVAIL, which is what a pulled
+  # cable or a changed DHCP lease looks like.
+  #
+  # Pin it to one address only if the machine is on more than one network and
+  # the robot must be kept off the others. Check the real one with 'ipconfig'
+  # (Windows) or 'ip addr' (Linux). The PC has been seen at 192.168.125.201.
+  host: 0.0.0.0
   port: 5000
   accept_timeout_s: 120.0
   # The robot answers only after the operator has pressed the yellow button
