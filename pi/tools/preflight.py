@@ -190,6 +190,86 @@ def check_config() -> None:
         record("config: marker", PASS, f"marker_length_mm = {marker}")
 
 
+MIN_SEATINGS = 3        # below this the play across seatings means nothing
+
+
+def judge_slot_angles(in_use: dict, measured: dict, quality: dict) -> tuple:
+    """Compare what config uses against what was measured. Pure, so it is tested.
+
+    Returns (status, detail). The order of the checks is the order the mistakes
+    actually happen in: not pasted, never measured, then not measured enough.
+    """
+    turning = {k: v for k, v in in_use.items() if k != "CIRCLE"}
+
+    stale = {name: (in_use.get(name, 0.0), value) for name, value in measured.items()
+             if abs(in_use.get(name, 0.0) - value) > 0.01}
+    if stale:
+        detail = ", ".join(f"{n}: config {c:.2f} vs measured {m:.2f}"
+                           for n, (c, m) in sorted(stale.items()))
+        return FAIL, (f"NOT PASTED - {detail}. Copy the place_slot_angles_deg "
+                      f"block from calibration/slot_angles.yaml into config.yaml")
+
+    missing = sorted(n for n in turning if n not in measured)
+    if missing:
+        return FAIL, (f"never measured: {', '.join(missing)} - "
+                      f"these would place unrotated")
+
+    thin = sorted(n for n, q in quality.items()
+                  if n != "CIRCLE" and isinstance(q, dict)
+                  and int(q.get("seatings", 0)) < MIN_SEATINGS)
+    if thin:
+        return SKIP, (f"only 1-2 seatings for {', '.join(thin)} - the play is "
+                      f"unknown, seat each one at least {MIN_SEATINGS} times")
+
+    plays = [f"{n} {q.get('play_deg', 0):.2f}deg"
+             for n, q in sorted(quality.items())
+             if n != "CIRCLE" and isinstance(q, dict)]
+    return PASS, ("pasted; play " + ", ".join(plays)) if plays else (PASS, "pasted")[1]
+
+
+def check_slot_angles() -> None:
+    """Did the measured slot angles ever reach config.yaml?
+
+    calibration/slot_angles.py writes a block for pasting; nothing reads that
+    file at run time. Forgetting to paste it is silent and expensive: every
+    object is then placed unrotated, which looks like a calibration fault
+    rather than a missed step.
+    """
+    import yaml
+
+    try:
+        from infrastructure.config_loader import load_config
+        config = load_config(BASE_DIR / "config" / "config.yaml")
+    except Exception:
+        return                                  # check_config already failed
+
+    in_use = {str(k).upper(): float(v) for k, v in
+              (config.get("coordinates", {}).get("place_slot_angles_deg") or {}).items()}
+    turning = {k: v for k, v in in_use.items() if k != "CIRCLE"}
+
+    measured_file = BASE_DIR / "calibration" / "slot_angles.yaml"
+    if not measured_file.is_file():
+        if turning and not any(turning.values()):
+            record("slot angles", SKIP,
+                   "all zero and nothing measured yet - run calibration/slot_angles.py")
+        else:
+            record("slot angles", PASS, f"{len(turning)} shape(s) set in config.yaml")
+        return
+
+    try:
+        saved = yaml.safe_load(measured_file.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        record("slot angles", FAIL, f"cannot read slot_angles.yaml: {exc}")
+        return
+
+    measured = {str(k).upper(): float(v) for k, v in
+                (saved.get("place_slot_angles_deg") or {}).items()}
+    quality = {str(k).upper(): v for k, v in (saved.get("slot_angle_quality") or {}).items()}
+
+    status, detail = judge_slot_angles(in_use, measured, quality)
+    record("slot angles", status, detail)
+
+
 # --- marker ----------------------------------------------------------------
 
 def check_lighting(camera: Optional[Any]) -> None:
@@ -297,6 +377,7 @@ def main() -> int:
     check_package("tkinter", "tkinter", "python3-tk (apt) or reinstall Python with tcl/tk")
 
     check_config()
+    check_slot_angles()
 
     camera = None if args.no_camera else check_camera(grab=True)
 

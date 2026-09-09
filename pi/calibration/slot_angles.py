@@ -316,6 +316,16 @@ def write_yaml(path: Path, seatings: Dict[Shape, List[float]]) -> None:
         else:
             note += f", play {play:.2f} deg"
         lines.append(f"  {shape.value}: {angle:.2f}   # {note}")
+
+    # Machine-readable, so preflight can check the paste happened and that
+    # enough seatings were taken. Only the block above goes into config.yaml.
+    lines += ["", "# Not for config.yaml - preflight reads this from here.",
+              "slot_angle_quality:"]
+    for shape, values in seatings.items():
+        period = shape.symmetry_period_deg
+        play = circular_spread_deg(values, period) if period else 0.0
+        lines.append(f"  {shape.value}: {{seatings: {len(values)}, "
+                     f"play_deg: {play:.2f}}}")
     text = "\n".join(lines) + "\n"
 
     path.write_text(text, encoding="utf-8")
