@@ -330,20 +330,41 @@ python calibration/slot_angles.py --camera basler
 ```
 
 For each shape: press `1`–`5` to pick it, press `R` and **drag a box round that
-slot**, wait for the reading to settle, press `SPACE`. `S` saves.
+slot**, wait for the reading to settle, press `SPACE`.
 
-**Expect:** each reading settles below **0.5° spread** before it lets you
-record. Paste the saved block into `coordinates.place_slot_angles_deg`.
+Then **lift the object out, seat it again, and press `SPACE` again — three
+times at least.** A shape-matched slot still has play in it, and the spread
+across seatings is the only honest measure of how much. The `0.5°` settle is
+frame-to-frame camera noise; it says nothing about whether the slot repeats.
+
+`C` clears a shape to start it over. `S` saves.
+
+**Expect:** `n=3` or more per shape, and `play` well under a tenth of that
+shape's symmetry period. Paste the saved block into
+`coordinates.place_slot_angles_deg`.
 
 > The box matters. Without it the tool measures the biggest thing in frame,
 > which is usually the jig plate itself or an object still lying on the sheet.
+> The **blue** box is the region you drew; the **green** one is what was found
+> and measured. If the green box is round the jig rather than the object, the
+> reading will look perfectly steady and be the jig's angle.
 
 | Problem | Fix |
 |---|---|
 | "no object in view" with the slot boxed | The box is on bare plate, or the object is not seated. An empty region is rejected rather than measured |
+| Marked **LOOSE** | The play exceeds 10% of the symmetry period. Not fatal — that slack is also what forgives a sloppy arrival angle — but the placement has to tolerate it |
+| Only `n=1` or `n=2` | Not enough seatings to judge the play at all. Seat it again |
 | Will not settle | Same causes as 2.5 — glare, focus, light. A star is the most sensitive |
 | Star reads wildly | Thin points eroded by thresholding — raise the light, check `padding_px` |
 | Circle refuses an angle | Correct. A circle has no orientation; it records 0 |
+| Window too big for the screen | Fixed — it fits to 908×760. `--display-width` to change it |
+
+**If the jig cannot be brought into frame:** lift each object straight out of
+its slot *without turning it*, set it on the picking sheet, and box it there.
+Same tool, same keys. But your hand is now between the slot and the number —
+any twist during the lift becomes a permanent error in a value every placement
+of that shape depends on, and you will never see it, because the reading will
+look perfectly steady.
 
 The jig does not have to be in frame during a picking cycle — only while
 measuring these angles.

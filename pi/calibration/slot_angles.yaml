@@ -1,4 +1,8 @@
 # Measured with calibration/slot_angles.py.
 # Re-measure whenever the jig moves.
+# 'play' is the spread across seatings - the slot's own slack plus
+# measurement noise. The placement must tolerate all of it.
 place_slot_angles_deg:
-  CIRCLE: 0.00
+  STAR: 45.11   # 29 seating(s), play 0.01 deg
+  SQUARE: 46.43   # 29 seating(s), play 0.01 deg
+  CIRCLE: 0.00   # 1 seating(s), play 0.00 deg

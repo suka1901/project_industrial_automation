@@ -112,15 +112,34 @@ coordinates:
                          # (with the aruco mapper the homography already handles
                          #  position; this sign only affects the rotation)
   angle_offset_deg: 0.0
-  # The angle each shape must ARRIVE at. Do not try to work these out from
-  # first principles - measure them, and every constant offset cancels:
+  # The angle each shape must ARRIVE at. Do not work these out from first
+  # principles - measure them. rz = slot_angle - object_angle, and both terms
+  # come from the same camera, so every constant offset cancels itself.
   #
-  #   1. Seat the object in its slot in the jig.
-  #   2. Lift it straight out WITHOUT TURNING IT, set it on the picking board.
-  #   3. Read it with:  python calibration/slot_angles.py --camera basler
+  # Position the jig IN THE CAMERA FRAME, then:
   #
-  # An object later found lying at that angle then needs no rotation at all.
-  # Re-measure whenever the jig moves. The circle is always 0.
+  #   python calibration/slot_angles.py --camera basler
+  #
+  # Seat the object in its slot, box that slot, press SPACE. Then lift it out,
+  # seat it again, and press SPACE again - at least three times per shape.
+  # A shape-matched slot still has play in it, and the spread across seatings
+  # is the only honest measure of how much. One reading cannot tell you whether
+  # the slot repeats to a tenth of a degree or to five, and the tool's own
+  # frame-to-frame spread only measures camera noise.
+  #
+  # The saved block carries that play beside each angle. It is the tolerance
+  # every placement of that shape has to live inside: a slot marked LOOSE
+  # forgives a sloppy arrival angle, a tight one does not.
+  #
+  # If the jig CANNOT be brought into frame, lift each object straight out of
+  # its slot without turning it, set it on the picking sheet and measure there.
+  # It works, but your hand is now between the slot and the number: any twist
+  # during the lift becomes a permanent error in a value every placement
+  # depends on, and the reading will look perfectly steady while being wrong.
+  #
+  # Re-measure whenever the jig moves - the angle depends on the jig's
+  # rotation, so nudging it round quietly invalidates all of these.
+  # The circle is always 0; it has no orientation to get wrong.
   place_slot_angles_deg:
     CIRCLE: 0.0
     SQUARE: 0.0
