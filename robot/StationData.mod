@@ -74,8 +74,10 @@ MODULE StationData
     ! so the fence is the sheet plus a margin. Derived from one measured
     ! corner, so a re-taught wobj1 costs two numbers instead of four.
     !
-    ! MEASURE THIS: jog the tool tip to the sheet corner nearest wobj1's
-    ! origin and read X and Y off the pendant.
+    ! Zero by construction: wobj1 was defined with its origin ON the corner of
+    ! the A3 sheet, X along the 420 mm edge. Nothing to measure, and the fence
+    ! below is therefore exact rather than inherited from a jogged reading.
+    ! If wobj1 is ever re-taught somewhere else, measure these two again.
     CONST num SHEET_ORIGIN_X := 0;
     CONST num SHEET_ORIGIN_Y := 0;
 

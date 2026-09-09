@@ -380,12 +380,12 @@ measuring these angles.
 
 In `robot/StationData.mod`:
 
-- `SHEET_ORIGIN_X` / `SHEET_ORIGIN_Y` — jog to the corner of the A3 sheet
-  nearest `wobj1`'s origin and read X and Y, with the pendant set up as in 3.1.
-  The four `PICK_AREA_*` bounds derive from these. These only feed the fence,
-  which carries a 15 mm margin, so 1–2 mm is plenty — no need for the corner
-  averaging the marker needs. Worth doing in the same session as 3.1 while the
-  pendant is already set up.
+- `SHEET_ORIGIN_X` / `SHEET_ORIGIN_Y` — **already 0, nothing to measure**, because
+  `wobj1` was defined with its origin on the A3 corner. That makes the four
+  `PICK_AREA_*` bounds exact rather than inherited from a jogged reading. Only
+  if `wobj1` is ever re-taught somewhere else do these need measuring: jog to
+  the sheet corner nearest the origin and read X and Y, pendant set up as in 3.1.
+  1–2 mm is plenty there — the fence carries a 15 mm margin.
 - `SHEET_SPAN_X` / `SHEET_SPAN_Y` — swap the two if the long edge runs along Y.
 - `PICK_SURFACE_Z_MM` — teach one pick point with an object under the cup, read Z.
 
