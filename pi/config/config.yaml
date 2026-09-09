@@ -108,7 +108,18 @@ aruco:
   dictionary: DICT_5X5_100
   marker_id: 0                 # null = accept any marker in view
   marker_length_mm: 100.0      # the supplied rubber marker
-  marker_centre_xy_mm: [0.0, 0.0]   # marker centre in wobj1 - MEASURE THIS
+  # Marker centre in wobj1, measured 2026-09-09. One corner was touched at
+  # (106.54, 89.26) and the other three derived from the marker's known 100 mm
+  # square, so this rests on ONE reading rather than the four-corner average.
+  # Step 3.2 is therefore required to refine it, not merely to confirm it:
+  # where the error is the same everywhere, it IS the correction, so add
+  # (jogged - reported) to these two numbers and re-check.
+  #
+  # The marker sits ON the sheet by choice, spanning X 106.5-206.5 and
+  # Y 89.3-189.3, so the usable picking area is the A3 minus that block.
+  # It was never labelled in any of the 57 training photos that contain it,
+  # so the detector treats it as background and will not call it a square.
+  marker_centre_xy_mm: [156.54, 139.26]
   marker_angle_deg: 0.0
   y_axis_flipped: false        # flip if a test pick comes out mirrored in Y
   redetect_every_n_frames: 1   # 1 = re-solve every frame; raise if time is tight
