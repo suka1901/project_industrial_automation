@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from adapters.gui.formatting import (NOT_TRUSTED_MARK, angle_confidence_text,
-                                      untrusted_angle_warning)
+                                      table_rows, untrusted_angle_warning)
 from application.shared_state import SharedState
 from domain.enums import Colour, Shape
 from domain.models import BoundingBox, Detection, PixelPoint
@@ -108,6 +108,55 @@ class TestUntrustedAngleWarning(unittest.TestCase):
 
     def test_silent_with_nothing_on_the_board(self):
         self.assertEqual(untrusted_angle_warning([]), "")
+
+
+class TestTableRows(unittest.TestCase):
+    """The view compares these against what is on screen and skips the redraw
+    when they match, so they must be stable and comparable."""
+
+    def _object(self, shape, x, y, trusted=True):
+        from domain.models import DetectedObject, WorldPose
+        detection = Detection(shape=shape, colour=Colour.RED, confidence=0.912,
+                              centre=PixelPoint(0.0, 0.0), angle_deg=0.0,
+                              angle_confidence=0.3 if trusted else 0.02)
+        return DetectedObject(detection=detection,
+                              pose=WorldPose(x, y, 0.0, 12.34),
+                              angle_trusted=trusted)
+
+    def test_one_row_per_object(self):
+        rows = table_rows([self._object(Shape.STAR, 1.0, 2.0),
+                           self._object(Shape.SQUARE, 3.0, 4.0)], gate=0.10)
+        self.assertEqual(len(rows), 2)
+
+    def test_the_same_scene_gives_an_equal_result(self):
+        """This is what makes the redraw skippable."""
+        a = table_rows([self._object(Shape.STAR, 1.0, 2.0)], gate=0.10)
+        b = table_rows([self._object(Shape.STAR, 1.0, 2.0)], gate=0.10)
+        self.assertEqual(a, b)
+
+    def test_a_moved_object_gives_a_different_result(self):
+        a = table_rows([self._object(Shape.STAR, 1.0, 2.0)], gate=0.10)
+        b = table_rows([self._object(Shape.STAR, 9.0, 2.0)], gate=0.10)
+        self.assertNotEqual(a, b)
+
+    def test_sub_millimetre_jitter_does_not_force_a_redraw(self):
+        """Positions display to 0.1 mm, so noise below that must not churn the
+        table ten times a second."""
+        a = table_rows([self._object(Shape.STAR, 100.00, 50.0)], gate=0.10)
+        b = table_rows([self._object(Shape.STAR, 100.04, 50.0)], gate=0.10)
+        self.assertEqual(a, b)
+
+    def test_a_weak_angle_shows_in_the_row(self):
+        rows = table_rows([self._object(Shape.STAR, 1.0, 2.0, trusted=False)],
+                          gate=0.10)
+        self.assertIn(NOT_TRUSTED_MARK.strip(), rows[0][3])
+
+    def test_an_empty_board_is_an_empty_tuple(self):
+        self.assertEqual(table_rows([], gate=0.10), ())
+
+    def test_the_result_is_hashable(self):
+        """It is cached and compared, so it must not be a list of lists."""
+        hash(table_rows([self._object(Shape.STAR, 1.0, 2.0)], gate=0.10))
 
 
 if __name__ == "__main__":

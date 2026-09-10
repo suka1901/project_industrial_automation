@@ -11,7 +11,8 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional, Sequence
 
-from adapters.gui.formatting import angle_confidence_text, untrusted_angle_warning
+from adapters.gui.formatting import (angle_confidence_text, table_rows,
+                                     untrusted_angle_warning)
 from domain.enums import Colour, Shape
 from domain.models import PickRequest, StateSnapshot
 from ports.interfaces import View
@@ -53,6 +54,10 @@ class TkView(View):
         self._photo = None
         self._shown_sequence = -1
         self._preview_width = -1
+        # What is currently on screen, so an unchanged frame costs nothing.
+        self._shown_rows: tuple = ()
+        self._timing_text = None
+        self._status_text = None
         # Drives the flashing warning. A static banner is easy to look past
         # when the operator is watching the robot rather than the screen.
         self._flash_on = False
@@ -231,16 +236,19 @@ class TkView(View):
         self._shown_sequence = preview.sequence
 
     def render(self, snapshot: StateSnapshot) -> None:
-        """Redraw the preview, the table and the labels from one snapshot."""
-        self._timing_label.config(
-            text=f"inference: {snapshot.inference_ms:.0f} ms"
-                 + ("" if snapshot.inference_ms <= self._budget_ms
-                    else "  OVER BUDGET")
-        )
-        self._status_label.config(
-            text=f"[{'connected' if snapshot.connected else 'no robot'}] "
-                 f"cycle {snapshot.cycle_index} - {snapshot.status_text}"
-        )
+        """Redraw whatever has changed, and nothing that has not.
+
+        This runs ten times a second. Every widget touched here is work the Tk
+        main thread does instead of staying responsive, so each part is guarded
+        by what it actually displays.
+        """
+        self._set_text(self._timing_label, "_timing_text",
+                       f"inference: {snapshot.inference_ms:.0f} ms"
+                       + ("" if snapshot.inference_ms <= self._budget_ms
+                          else "  OVER BUDGET"))
+        self._set_text(self._status_label, "_status_text",
+                       f"[{'connected' if snapshot.connected else 'no robot'}] "
+                       f"cycle {snapshot.cycle_index} - {snapshot.status_text}")
 
         try:
             self._render_preview(snapshot.preview)
@@ -249,18 +257,27 @@ class TkView(View):
             log.debug("Preview failed: %s", exc)
 
         self._show_warning(untrusted_angle_warning(snapshot.detections))
+        self._render_table(snapshot.detections)
 
+    def _set_text(self, widget, cache_name: str, text: str) -> None:
+        """Configure a label only when its text has actually changed."""
+        if getattr(self, cache_name, None) != text:
+            widget.config(text=text)
+            setattr(self, cache_name, text)
+
+    def _render_table(self, detections) -> None:
+        """Rebuild the table only when its contents differ.
+
+        Rebuilding unconditionally destroyed any row the operator had clicked
+        100 ms later, so the table could not be selected or scrolled at all.
+        """
+        rows = table_rows(detections, self._place_gate)
+        if rows == self._shown_rows:
+            return
+        self._shown_rows = rows
         self._tree.delete(*self._tree.get_children())
-        for obj in snapshot.detections:
-            self._tree.insert("", "end", values=(
-                obj.shape.value,
-                obj.colour.value,
-                f"{obj.detection.confidence:.2f}",
-                angle_confidence_text(obj, self._place_gate),
-                f"{obj.pose.x:.1f}",
-                f"{obj.pose.y:.1f}",
-                f"{obj.pose.rz:.1f}",
-            ))
+        for row in rows:
+            self._tree.insert("", "end", values=row)
 
 
 
