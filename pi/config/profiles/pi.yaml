@@ -28,3 +28,8 @@ detector:
   #   conf 0.50  recall 92.1%  precision 96.3%
   #   conf 0.60  recall 88.6%  precision 97.1%
   confidence: 0.5
+
+# The Pi is normally reached over SSH, where Tk cannot open a window at all.
+# Override with 'kind: tk' when running on the station monitor or through VNC.
+gui:
+  kind: console

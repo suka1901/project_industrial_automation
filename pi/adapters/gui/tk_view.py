@@ -52,6 +52,7 @@ class TkView(View):
         # one is held here. `_shown_sequence` avoids rescaling an unchanged frame.
         self._photo = None
         self._shown_sequence = -1
+        self._preview_width = -1
         # Drives the flashing warning. A static banner is easy to look past
         # when the operator is watching the robot rather than the screen.
         self._flash_on = False
@@ -59,12 +60,31 @@ class TkView(View):
 
         self._root = tk.Tk()
         self._root.title("INA700 - AI Pick and Place")
-        self._root.geometry("1180x640")
+        self._maximise()
         self._root.protocol("WM_DELETE_WINDOW", self._handle_close)
 
         self._build_widgets()
 
     # --- construction ------------------------------------------------------
+
+    def _maximise(self) -> None:
+        """Fill the screen, whatever window manager is underneath.
+
+        A fixed 1180x640 wasted most of a station monitor and cropped the
+        preview on a small one. The ways to maximise differ by platform and
+        several of them raise rather than degrade, so each is tried in turn
+        and sizing to the screen is the fallback that always works.
+        """
+        for attempt in (lambda: self._root.state("zoomed"),                  # Windows
+                        lambda: self._root.attributes("-zoomed", True)):     # X11
+            try:
+                attempt()
+                return
+            except Exception:
+                continue
+        width = self._root.winfo_screenwidth()
+        height = self._root.winfo_screenheight()
+        self._root.geometry(f"{width}x{height - 60}+0+0")
 
     def _build_widgets(self) -> None:
         """Lay out the control row, the detection table and the status bar."""
@@ -149,7 +169,8 @@ class TkView(View):
 
     # --- View interface ----------------------------------------------------
 
-    PREVIEW_WIDTH = 640          # display only; nothing measures this image
+    PREVIEW_WIDTH = 640          # fallback only, before the window is mapped
+    PREVIEW_MIN_WIDTH = 320      # below this the boxes are unreadable anyway
     BOX_COLOUR = (0, 200, 255)   # BGR: amber, readable on both paper and table
 
     def _render_preview(self, preview) -> None:
@@ -163,8 +184,10 @@ class TkView(View):
         """
         if preview is None or preview.image is None:
             return
-        if preview.sequence == self._shown_sequence:
-            return                                   # nothing new to show
+        if (preview.sequence == self._shown_sequence
+                and self._preview.winfo_width() == self._preview_width):
+            return                          # same frame, same size: nothing to do
+        self._preview_width = self._preview.winfo_width()
 
         import cv2
         from PIL import Image, ImageTk
@@ -184,9 +207,16 @@ class TkView(View):
                         (top_left[0], max(18, top_left[1] - 8)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.BOX_COLOUR, 2)
 
+        # Scale to whatever room the window is giving the preview right now,
+        # so a maximised window uses the screen instead of a fixed 640 px.
         height, width = image.shape[:2]
-        scale = self.PREVIEW_WIDTH / float(width)
-        small = cv2.resize(image, (self.PREVIEW_WIDTH, int(height * scale)),
+        available_w = max(self.PREVIEW_MIN_WIDTH, self._preview.winfo_width())
+        available_h = max(self.PREVIEW_MIN_WIDTH, self._preview.winfo_height())
+        if available_w <= 1 or available_h <= 1:          # not yet mapped
+            available_w, available_h = self.PREVIEW_WIDTH, self.PREVIEW_WIDTH
+        scale = min(available_w / float(width), available_h / float(height))
+        small = cv2.resize(image, (max(1, int(width * scale)),
+                                   max(1, int(height * scale))),
                            interpolation=cv2.INTER_AREA)
 
         self._photo = ImageTk.PhotoImage(

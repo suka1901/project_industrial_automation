@@ -97,8 +97,16 @@ def main() -> int:
     supervisor.add(CycleWorker(shutdown, controller, requests, state))
     supervisor.start_all()
 
-    # --- the GUI owns the main thread --------------------------------------
-    view = TkView(
+    # --- the view owns the main thread -------------------------------------
+    # console needs no display, which is what makes an SSH session on the Pi
+    # work; tk is the richer alternative when there is a monitor.
+    view_kind = str(config.get("gui", {}).get("kind", "tk")).lower()
+    view_class = TkView
+    if view_kind == "console":
+        from adapters.gui.console_view import ConsoleView
+        view_class = ConsoleView
+
+    view = view_class(
         allowed_shapes=container.shapes,
         on_cycle_requested=requests.put,     # queue is the thread-safe hand-off
         on_close=shutdown.set,

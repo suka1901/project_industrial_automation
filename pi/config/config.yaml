@@ -211,6 +211,11 @@ vision:
   min_confidence: 0.5
 
 gui:
+  # tk      - a window: live preview, table, warnings. Needs a display.
+  # console - type "circle red" at the terminal. Needs no display at all,
+  #           which is what makes an SSH session on the Pi work; Tk fails
+  #           there with "no display name and no $DISPLAY".
+  kind: tk
   refresh_ms: 100
 
 logging:
