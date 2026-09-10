@@ -189,6 +189,23 @@ def check_config() -> None:
     if marker:
         record("config: marker", PASS, f"marker_length_mm = {marker}")
 
+    # The detector the config asks for must actually be runnable here. On the
+    # Pi this is the difference between a clean message now and a stack trace
+    # after the camera and the GUI have already started.
+    if detector_kind == "yolo":
+        try:
+            import ultralytics  # noqa: F401
+        except ImportError:
+            record("config: detector", FAIL,
+                   "kind is 'yolo' but ultralytics is not installed - on the Pi "
+                   "run with --config config/profiles/pi.yaml (kind: ncnn)")
+    elif detector_kind == "ncnn":
+        try:
+            import ncnn  # noqa: F401
+            record("config: detector", PASS, "kind=ncnn, no torch needed")
+        except ImportError:
+            record("config: detector", FAIL, "kind is 'ncnn' but ncnn is not installed")
+
 
 MIN_SEATINGS = 3        # below this the play across seatings means nothing
 

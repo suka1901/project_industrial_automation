@@ -36,7 +36,21 @@ class YoloDetector(ObjectDetector):
     def _ensure_loaded(self) -> Any:
         """Load the model on first use and return it."""
         if self._model is None:
-            from ultralytics import YOLO  # lazy import keeps startup light
+            try:
+                from ultralytics import YOLO  # lazy import keeps startup light
+            except ImportError as exc:
+                # Almost always the Pi, run without --config. Naming the
+                # missing package sends people off to install a 2 GB CUDA
+                # stack; naming the actual cause takes one flag to fix.
+                raise ImportError(
+                    "detector.kind is 'yolo', which loads through ultralytics "
+                    "whatever the model format - and ultralytics needs torch. "
+                    "On the Raspberry Pi run with:\n"
+                    "    --config config/profiles/pi.yaml\n"
+                    "which uses kind: ncnn and needs neither. Installing "
+                    "ultralytics on a Pi pulls about 2 GB of NVIDIA CUDA "
+                    "libraries onto a board with no GPU."
+                ) from exc
             log.info("Loading YOLO model from %s", self._model_path)
             self._model = YOLO(self._model_path, task="detect")
         return self._model
