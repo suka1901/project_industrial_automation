@@ -171,6 +171,10 @@ class TkView(View):
 
     PREVIEW_WIDTH = 640          # fallback only, before the window is mapped
     PREVIEW_MIN_WIDTH = 320      # below this the boxes are unreadable anyway
+    # Rendering scales with the pixels drawn, and past about this width the
+    # operator learns nothing more from a bigger picture. Maximising the
+    # window should not quietly quadruple the cost of every frame.
+    PREVIEW_MAX_WIDTH = 1000
     BOX_COLOUR = (0, 200, 255)   # BGR: amber, readable on both paper and table
 
     def _render_preview(self, preview) -> None:
@@ -192,32 +196,34 @@ class TkView(View):
         import cv2
         from PIL import Image, ImageTk
 
-        image = preview.image.copy()
+        # Shrink FIRST, then draw on the small image. Copying the full frame
+        # to draw on it costs 15 MB and a rectangle drawn at 2448 px wide is
+        # thrown away by the resize anyway.
+        height, width = preview.image.shape[:2]
+        available_w = min(self.PREVIEW_MAX_WIDTH,
+                          max(self.PREVIEW_MIN_WIDTH, self._preview.winfo_width()))
+        available_h = max(self.PREVIEW_MIN_WIDTH, self._preview.winfo_height())
+        if self._preview.winfo_width() <= 1:              # not yet mapped
+            available_w, available_h = self.PREVIEW_WIDTH, self.PREVIEW_WIDTH
+        scale = min(available_w / float(width), available_h / float(height))
+
+        small = cv2.resize(preview.image, (max(1, int(width * scale)),
+                                           max(1, int(height * scale))),
+                           interpolation=cv2.INTER_AREA)
+
         for detection in preview.detections:
             box = detection.box
             if box is None:
                 continue
-            top_left = (int(box.u_min), int(box.v_min))
-            bottom_right = (int(box.u_max), int(box.v_max))
-            cv2.rectangle(image, top_left, bottom_right, self.BOX_COLOUR, 3)
+            top_left = (int(box.u_min * scale), int(box.v_min * scale))
+            bottom_right = (int(box.u_max * scale), int(box.v_max * scale))
+            cv2.rectangle(small, top_left, bottom_right, self.BOX_COLOUR, 2)
             label = (f"{detection.shape.value.lower()} "
                      f"{detection.colour.value.lower()} "
                      f"{detection.confidence:.2f}")
-            cv2.putText(image, label,
-                        (top_left[0], max(18, top_left[1] - 8)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, self.BOX_COLOUR, 2)
-
-        # Scale to whatever room the window is giving the preview right now,
-        # so a maximised window uses the screen instead of a fixed 640 px.
-        height, width = image.shape[:2]
-        available_w = max(self.PREVIEW_MIN_WIDTH, self._preview.winfo_width())
-        available_h = max(self.PREVIEW_MIN_WIDTH, self._preview.winfo_height())
-        if available_w <= 1 or available_h <= 1:          # not yet mapped
-            available_w, available_h = self.PREVIEW_WIDTH, self.PREVIEW_WIDTH
-        scale = min(available_w / float(width), available_h / float(height))
-        small = cv2.resize(image, (max(1, int(width * scale)),
-                                   max(1, int(height * scale))),
-                           interpolation=cv2.INTER_AREA)
+            cv2.putText(small, label,
+                        (top_left[0], max(14, top_left[1] - 6)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.BOX_COLOUR, 1)
 
         self._photo = ImageTk.PhotoImage(
             Image.fromarray(cv2.cvtColor(small, cv2.COLOR_BGR2RGB)))

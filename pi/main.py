@@ -91,7 +91,8 @@ def main() -> int:
 
     # --- start the worker threads ------------------------------------------
     supervisor = ThreadSupervisor(shutdown)
-    supervisor.add(CaptureWorker(shutdown, frame_source, frames))
+    supervisor.add(CaptureWorker(shutdown, frame_source, frames,
+                                 max_fps=config["camera"].get("capture_fps", 10.0)))
     supervisor.add(InferenceWorker(shutdown, pipeline, frames, results, state))
     supervisor.add(ConnectionWorker(shutdown, transport, state, MessageCodec().encode_quit()))
     supervisor.add(CycleWorker(shutdown, controller, requests, state))

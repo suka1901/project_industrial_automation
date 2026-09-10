@@ -26,6 +26,11 @@ camera:
   # Set both to null to leave the camera's settings alone.
   exposure_us: 3000      # measured from the camera 2026-09-04
   gain: 0.0              # lowest noise; there is plenty of light
+  # How often the capture thread actually grabs. The camera can deliver 71.8
+  # fps, but inference does about 2.4, so anything above a few fps is grabbed
+  # and dropped unread - 15 MB a frame of pure waste, and a pinned core that
+  # starves the GUI. 10 keeps the preview lively without competing.
+  capture_fps: 10.0
   timeout_ms: 5000
   show_window: false     # true shows the raw feed while aiming
 

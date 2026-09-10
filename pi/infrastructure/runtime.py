@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+import time
 from typing import List, Optional
 
 from domain.models import Frame, InferenceResult
@@ -54,15 +55,30 @@ class CaptureWorker(Worker):
     """Thread 1 - keeps the newest camera frame available, nothing else."""
 
     def __init__(self, shutdown: threading.Event, source: FrameSource,
-                 output: "queue.Queue[Frame]") -> None:
+                 output: "queue.Queue[Frame]", max_fps: float = 10.0) -> None:
         super().__init__("capture", shutdown)
         self._source = source
         self._output = output
+        # Without this the loop grabs as fast as the camera allows. The Basler
+        # runs at 71.8 fps and inference does about 2.4, so 97% of those frames
+        # are dropped unread - at 15 MB each that is roughly a gigabyte per
+        # second of memory traffic, and a core pinned, to no purpose. It starves
+        # the GUI thread, which is what "the GUI is lagging" turned out to be.
+        self._min_interval_s = 1.0 / max_fps if max_fps > 0 else 0.0
+        self._next_grab = 0.0
 
     def on_start(self) -> None:
         self._source.open()
 
     def step(self) -> None:
+        # Wait out the remainder of the interval rather than sleeping a fixed
+        # amount, so a slow read does not compound into a slower rate.
+        if self._min_interval_s > 0.0:
+            wait = self._next_grab - time.monotonic()
+            if wait > 0.0 and self._shutdown.wait(wait):
+                return
+            self._next_grab = time.monotonic() + self._min_interval_s
+
         frame = self._source.read()
         if frame is None:
             self._shutdown.wait(0.02)  # brief pause instead of a busy spin
