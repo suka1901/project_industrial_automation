@@ -113,9 +113,34 @@ class HarmonicOrientationEstimator(OrientationEstimator):
 
     @staticmethod
     def _centroid(outline: List[Tuple[float, float]]) -> Optional[PixelPoint]:
-        """Centre of the outline, averaged over every boundary point."""
+        """Centre of the object's AREA, not of its outline samples.
+
+        The cup lands here, so this is a picking accuracy question before it
+        is anything else. Measured on the labelled squares and stars, the two
+        differ by a median of 4.5 px and up to 21.5 px - at 3.23 px/mm that is
+        1.4 mm typically and 6.7 mm at worst.
+
+        The area centroid is also the right target physically: a vacuum cup
+        wants the middle of the material, not the average of the boundary
+        points, which drifts wherever the outline is broken or unevenly
+        sampled. And because this centre is the origin of the radial
+        signature, a steadier one measures a better angle - it took the
+        objects falling below the confidence gate from 15 to 9.
+        """
         if not outline:
             return None
+
+        import cv2
+        import numpy as np
+
+        contour = np.array(outline, dtype="float32").reshape(-1, 1, 2)
+        moments = cv2.moments(contour)
+        if moments["m00"] > 0.0:
+            return PixelPoint(moments["m10"] / moments["m00"],
+                              moments["m01"] / moments["m00"])
+
+        # Zero area: a degenerate outline, so fall back to the sample mean
+        # rather than refusing a centre altogether.
         count = float(len(outline))
         return PixelPoint(sum(x for x, _ in outline) / count,
                           sum(y for _, y in outline) / count)

@@ -223,6 +223,7 @@ class TkView(View):
             top_left = (int(box.u_min * scale), int(box.v_min * scale))
             bottom_right = (int(box.u_max * scale), int(box.v_max * scale))
             cv2.rectangle(small, top_left, bottom_right, self.BOX_COLOUR, 2)
+            self._draw_pose(small, detection, scale)
             label = (f"{detection.shape.value.lower()} "
                      f"{detection.colour.value.lower()} "
                      f"{detection.confidence:.2f}")
@@ -306,6 +307,40 @@ class TkView(View):
             self._flash_on = not self._flash_on
             background, foreground = self.FLASH_COLOURS[self._flash_on]
             self._warning_label.config(bg=background, fg=foreground)
+
+    CENTRE_COLOUR = (255, 255, 255)   # BGR: white, visible on paper and table
+    ANGLE_COLOUR = (60, 220, 60)      # BGR: green, distinct from the box
+
+    def _draw_pose(self, canvas, detection, scale: float) -> None:
+        """Mark where the cup will land, and which way the object is turned.
+
+        A box says an object is there; it says nothing about the two numbers
+        the robot actually acts on. Drawn here, a centre that has drifted off
+        the object or an angle pointing the wrong way is obvious at a glance,
+        which reading 156.5 in a table never is.
+        """
+        import cv2
+        import math
+
+        centre = (int(detection.centre.u * scale), int(detection.centre.v * scale))
+        cv2.drawMarker(canvas, centre, self.CENTRE_COLOUR,
+                       cv2.MARKER_CROSS, markerSize=11, thickness=2)
+
+        if detection.shape.is_rotationally_free:
+            return          # a circle has no direction to draw
+
+        # One ray per symmetry axis: five for a star, four for a square. All of
+        # them are equally valid answers, and showing them makes the symmetry
+        # visible instead of implying a single arbitrary heading.
+        box = detection.box
+        reach = 0.45 * min(box.width, box.height) * scale if box else 20.0
+        period = detection.shape.symmetry_period_deg
+        arms = detection.shape.symmetry_order or 1
+        for index in range(arms):
+            angle = math.radians(detection.angle_deg + index * period)
+            tip = (int(centre[0] + reach * math.cos(angle)),
+                   int(centre[1] + reach * math.sin(angle)))
+            cv2.line(canvas, centre, tip, self.ANGLE_COLOUR, 2)
 
     def _tick(self) -> None:
         """Timer callback: pull a snapshot and reschedule."""
