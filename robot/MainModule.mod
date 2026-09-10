@@ -250,10 +250,19 @@ MODULE MainModule
     ! fixed slot. The wrist turns here, not at the pick, because a suction cup
     ! grips the object at whatever angle it was lying.
     !
-    ! \Tool and \WObj are explicit: without them RelTool uses whatever the last
-    ! move left active, and this runs before the first move of the cycle.
+    ! RelTool's whole signature is (Point, Dx, Dy, Dz [\Rx] [\Ry] [\Rz]) - there
+    ! is no \Tool and no \WObj, and the controller rejects them. It needs
+    ! neither: the rotation is applied about the axes of the POINT'S OWN
+    ! orientation, so the frame comes from placeTargets{i} itself rather than
+    ! from whatever happens to be active.
+    !
+    ! That orientation has the cup pointing down, so \Rz turns about the
+    ! vertical - the wrist correction the vacuum pick makes necessary. Its
+    ! sense follows the tool Z, which points downward; if a test object comes
+    ! out turned the wrong way that is coordinates.angle_sign in config.yaml,
+    ! not this line.
     FUNC robtarget PlaceTargetFor(pickcommand request)
-        RETURN RelTool(placeTargets{request.shapeIndex}, 0, 0, 0 \Rz:=request.rotation \Tool:=vac \WObj:=wobj2);
+        RETURN RelTool(placeTargets{request.shapeIndex}, 0, 0, 0 \Rz:=request.rotation);
     ENDFUNC
 
     !--- Gripper ----------------------------------------------------------
