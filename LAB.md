@@ -86,8 +86,9 @@ python3 tools/preflight.py --length 100 --config config/profiles/pi.yaml
 | lighting | 95th percentile **180–210**, nothing clipping |
 
 A failing lighting row tells you what to change it to, e.g. `try
-camera.exposure_us 11179 (it is 3000 now)`. Put that in `config.yaml`, rebundle,
-run it again.
+camera.exposure_us 11179 (it is 3000 now)`. Edit `config.yaml` **on the Pi** and
+run preflight again — see "What needs a rebundle" below; do not rebuild the
+bundle for a number.
 
 `CROPPED` means the camera is delivering part of its sensor — a crop someone
 left in Pylon Viewer, which survives a power cycle and looks exactly like a
@@ -203,7 +204,9 @@ the reading to settle, `SPACE`. Then **lift it out, seat it again, `SPACE`
 again — at least three times.** The spread across seatings is the only honest
 measure of the slot's play; the tool refuses `SPACE` until it has seen the slot
 empty. `C` clears a shape, `S` saves. Paste the saved block into
-`coordinates.place_slot_angles_deg`, rebundle, copy across.
+`coordinates.place_slot_angles_deg` **on the Pi**, and restart `main.py`. No
+rebundle: the file the Pi reads is the file you just edited. Copy it back to the
+PC before you leave, so the submitted code holds the values that ran.
 
 **If the jig does not fit in the camera's view**, slide it in and slide it back.
 These are rotations, and sliding does not change one — only turning the jig
@@ -278,6 +281,40 @@ placement came out crooked. Nothing is shown on screen during the cycle.
 
 Count the placements as the examiner will: five of six correct orientation, at
 least one of each shape, all three picked in each cycle.
+
+---
+
+## 8b. What needs a rebundle, and what does not
+
+The bundle is `pi/` plus the model. Nothing else travels in it, which settles
+every case:
+
+| What you changed | What to do |
+|---|---|
+| a number in `config.yaml` — exposure, slot angles, `angle_sign`, `marker_*` | edit it **on the Pi**, restart `main.py`. No rebundle |
+| anything taught on the robot — `wobj1`, `wobj2`, `p10`–`p60`, `PICK_SURFACE_Z_MM`, the `.mod` modules, the address in `ServerCommuncatio.sys` | nothing. It lives in the controller and reaches the submission through the Pack-and-Go |
+| Python code, on the PC | rebundle and copy across |
+| a re-exported model | rebundle and copy across |
+| a fresh Pi, or an unpack you do not trust | rebundle and copy across |
+
+Editing on the Pi:
+
+```bash
+nano ~/INA700/pi/config/config.yaml        # or vi
+python3 tools/preflight.py --length 100 --config config/profiles/pi.yaml
+```
+
+**Before leaving, carry the Pi's config back** — otherwise the values that made
+the demonstration work exist only on an SD card:
+
+```powershell
+scp pi@<pi-address>:~/INA700/pi/config/config.yaml pi/config/config.yaml
+scp pi@<pi-address>:~/INA700/pi/calibration/slot_angles.yaml pi/calibration/
+```
+
+Then commit, and build the submission. The same goes for the RAPID modules: if
+you edited them on the pendant, copy the text back into `robot/` so the repo
+matches the station the Pack-and-Go captured.
 
 ---
 
