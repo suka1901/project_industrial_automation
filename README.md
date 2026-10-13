@@ -19,7 +19,7 @@ detected or acted on.
 ```
 INA700/
 ├─ README.md              this file: what it is and why it is built this way
-├─ STEPS.md               how to run, test, calibrate, train and deploy
+├─ LAB.md                 what to do at the station, in order
 ├─ pi/                    the vision application (Python)
 ├─ robot/                 RAPID modules for the ABB controller
 ├─ model/                 trained weights, dataset, training notebook
@@ -36,7 +36,7 @@ python smoke_test.py --config config/profiles/mock.yaml
 ```
 
 Full detail, including the tests that use the real trained model, is in
-[STEPS.md](STEPS.md).
+[LAB.md](LAB.md).
 
 ---
 
@@ -96,8 +96,9 @@ Each thread owns one job, as the assignment requires.
 |---|---|
 | capture | pulls frames off the camera |
 | inference | ArUco calibration, model, orientation, colour — timed |
+| mapping | coordinate translation: pixels → work object X, Y, Rz, every frame |
+| cycle | runs a picking cycle when the operator asks, retries, waits for the robot |
 | connection | accepts the robot and holds the socket |
-| cycle | runs a picking cycle when the operator asks |
 | main (Tk) | the GUI |
 
 Frames pass through bounded queues holding two items, so a slow consumer drops
@@ -105,7 +106,53 @@ stale frames instead of growing a backlog. Shared state sits behind an `RLock`
 and hands out immutable snapshots, so the GUI can never read a half-written
 update.
 
-### Orientation is read from a harmonic, not a bounding rectangle
+### Orientation: fit the shape, over several segmentations
+
+Two things decide whether an angle is right, and only one of them is the maths.
+
+**Finding the object is the hard half.** One threshold cannot separate every
+object from the paper: brightness finds a dark object, colour finds a coloured
+one, and a WHITE object on white paper differs from the paper by three or four
+grey levels — less than the sensor's noise — so only its border, which steps in
+brightness and casts a hairline shadow, gives it away. Four candidate masks are
+therefore tried per object (`otsu`, `chroma`, `gradient`, `edges`) and the one
+that best matches an ideal square or star wins; the search stops early when a
+mask plainly fits, so a clearly visible object still costs one segmentation.
+
+**The fit is also the confidence.** Laying an ideal shape over the mask and
+sweeping it round gives both the angle and an overlap score, and the overlap is
+what the gates read. This replaced a measure that could not do the job: the
+harmonic's own |Z| says how N-lobed an outline is, which a speckled mask of a
+white square scored 0.4 on while being 25° wrong, so raising that gate filtered
+almost nothing.
+
+Measured over 184 labelled objects, each read at five known rotations
+(`tools/orientation_bench.py`):
+
+| gate | squares kept | squares p90 error | stars kept | stars p90 error |
+|---|---|---|---|---|
+| 0.70 | 85% | 11.0° | 93% | 0.39° |
+| 0.75 | 76% | 3.4° | 91% | 0.23° |
+| **0.80** | **68%** | **2.0°** | **89%** | **0.17°** |
+
+0.80 is where a square stops being wrong by more than the jig's own play, and
+it costs the stars nothing.
+
+**The angle itself** comes from the same N-fold idea as before, but summed over
+the mask's whole AREA rather than its outline — every pixel votes, weighted by
+rᴺ so the rim decides — which is both more precise (0.14° against 0.60°) and
+indifferent to a nick in the contour. It is kept only while it agrees with the
+fitted angle to within `agreement_deg`; past that the fitted angle, the one the
+confidence vouches for, is what is sent.
+
+**Slot angles must be measured by the same estimator.** `rz = slot − object`
+cancels every constant offset an estimator has, but only while both terms come
+from the same one. `calibration/slot_angles.py` therefore builds its estimator
+from `config.yaml` and records which one in `slot_angles.yaml`, and preflight
+FAILS on a mismatch rather than letting every placement be out by the
+difference.
+
+### The original estimator, still selectable as `orientation.kind: harmonic`
 
 `cv2.minAreaRect` gives an angle unique only modulo 90°, which fits a square and
 nothing else. It also jumps on a star as the defining pair of points changes.
@@ -133,7 +180,7 @@ A weak angle is refused rather than guessed: `Detection` carries
 `angle_confidence`, and `OrientationConfidenceSelector` drops the object before
 it reaches the robot. `Shape.is_rotationally_free` exempts the circle.
 
-**Where the 0.10 gate comes from.** Every measurable object in the held-out set
+**Where its own 0.10 gate came from.** Every measurable object in the held-out set
 was measured, then the photo rotated by a known angle to see whether the
 reported angle followed:
 
@@ -162,6 +209,25 @@ Move it away from the sheet edge, or use a coloured object.
 
 `orientation.on_low_angle_confidence: skip` leaves it on the board instead,
 which is right when placement accuracy matters more than throughput.
+
+### What has to be in the camera's view
+
+The **A3 sheet** does — an object outside the picture cannot be picked, and the
+ArUco marker printed at the sheet's centre is what maps pixels to millimetres.
+
+The **jig does not**. The placing positions are taught on the robot, in `wobj2`,
+and nothing at run time reads the jig. It is only needed while measuring the
+slot angles, and those are *rotations*: the jig can be slid into view and back
+out without changing them, as long as it is never turned on the way. Preflight
+therefore judges the field of view against the sheet alone, and says how many
+millimetres it is short when it does not fit.
+
+The camera also keeps its area of interest in its own memory, so a crop left
+behind in Pylon Viewer survives a power cycle, and a cropped image is
+indistinguishable from a longer lens — the table simply looks closer. The full
+sensor is therefore requested explicitly on every open (`camera.full_sensor`),
+and a camera that will not widen says so in the log rather than passing for a
+narrow lens.
 
 ### Colour is judged on the object, not the box
 
@@ -227,6 +293,57 @@ than four.
 only edit is line 52, the PC address, `192.168.125.2` → `192.168.125.201`. The
 untouched original is at `docs/ServerCommuncatio.sys.original`; `diff` shows the
 single change.
+
+---
+
+## Why orientation is measured this way
+
+Three shapes, three different symmetry periods: the square repeats every 90°,
+the star every 72°, and the circle has no orientation at all. Any method has to
+handle all three, and report honestly when there is nothing to report.
+
+**The obvious approach does not work.** `cv2.minAreaRect` fits a rotated
+bounding box, which is the first thing anyone reaches for. But a rectangle is
+only defined **modulo 90°**, so it can only measure shapes whose symmetry period
+divides 90. The square qualifies. The star does not — 72 does not divide 90, so
+a five-pointed star has *five* equally minimal rectangles, 18° apart, and pixel
+noise decides which one OpenCV returns. Measured over a full rotation, 1 px of
+contour noise:
+
+| Shape | `minAreaRect` median / worst | Harmonic median / worst |
+|---|---|---|
+| Square (period 90°) | 0.19° / 0.90° | 0.16° / 0.67° |
+| Star (period 72°) | **17.83° / 35.97°** | 0.11° / 0.45° |
+
+The star error is not noise that averaging could remove — it is a quantised jump
+between five equally stable wrong answers. The box centre fails too: a five-fold
+shape has no opposing vertex to balance each tip, so its bounding box is
+lopsided and its centre sits **15.8 px — about 4.9 mm — off the true centre**,
+against 0.5 px for the area centroid. The cup would miss a small star entirely.
+
+**What is used instead.** The orientation is the phase of the N-th Fourier
+coefficient of the object's radial profile; the magnitude of that coefficient is
+the confidence.
+
+Said without the jargon: a star's five tips are five equally correct answers
+72° apart, so averaging them directly gives nothing — they cancel. Multiply
+every angle by five first and those 72° gaps become 360° gaps, which is to say
+the five answers land on top of each other. Average them there, divide the
+result by five, and that is the orientation. `docs/orientation_method.svg` draws
+it in four steps.
+
+The confidence is not a separate check bolted on afterwards: if the shape really
+has N-fold symmetry the terms agree after the multiplication and the sum is
+long, and if it is a circle they cancel to nearly zero. The same arithmetic that
+produces the angle says whether the angle means anything, which is where the
+weak-angle warning comes from.
+
+**The architectural consequence.** One estimator covers all three shapes with a
+single parameter — N = 4 for the square, N = 5 for the star, and for the circle
+the magnitude collapses and it correctly reports no orientation, with no special
+case anywhere. A bounding-box approach would need per-shape branching. Adding a
+hexagon later means writing the number 6 in a config file, not writing code:
+open for extension, closed for modification, on something real.
 
 ---
 
@@ -297,11 +414,11 @@ document cannot drift from the code, because the test would fail first.
 
 | Requirement | Where |
 |---|---|
-| Multithreading, one job per thread | `infrastructure/runtime.py` |
-| AI inference — shape, position, orientation | `YoloDetector` + `HarmonicOrientationEstimator` |
-| Coordinate translation pixel → work object | `adapters/mapping/`, ArUco homography |
+| Multithreading, one job per thread | `infrastructure/runtime.py` — capture, inference, mapping, cycle, connection, plus the GUI |
+| AI inference — shape, position, orientation | `YoloDetector` + `FittedOrientationEstimator` (`HarmonicOrientationEstimator` still selectable) |
+| Coordinate translation pixel → work object | `MappingWorker` thread, `CoordinateService`, ArUco homography in `adapters/mapping/` |
 | Server communication Pi → robot | `TcpServerTransport`, `MessageCodec` |
-| GUI showing position and orientation | `adapters/gui/tk_view.py` — live camera view with boxes, plus the X/Y/Rz table |
+| GUI showing position and orientation | `adapters/gui/tk_view.py` — live camera view with the pick centre and the angle drawn on every object; the target's X/Y/Rz in the status bar |
 | Robot: client communication | `MainModule.mod` |
 | Robot: dynamic picking | `PickTargetFor` |
 | Robot: fixed-position placing | `placeTargets{5}` in `wobj2` |
@@ -314,7 +431,7 @@ document cannot drift from the code, because the test would fail first.
 | Colour detection, pick only a specified colour | `ColourRequestSelector` |
 | Infinite cycles without restart | `CycleWorker` |
 | User input selects the object | GUI shape and colour dropdowns |
-| Retry up to two times | `max_attempts: 3` — first try plus two retries |
+| Retry up to two times | `max_attempts: 3` — first try plus two retries, `retry_delay_s` apart; none spent while the robot is disconnected |
 | Inference under 3 s, time printed | printed every cycle; 118 ms measured on x86 |
 | Organised, named, commented | 63 modules, 78 tests, author header on each file |
 

@@ -36,8 +36,12 @@ class CoordinateService {
 class CycleController {
   -max_attempts : int
   -verify_tolerance_mm : float
+  -retry_delay_s : float
+  -connect_wait_s : float
   -cycle_index : int
   +run_cycle(request) : CycleReport
+  -_attempt(request, attempt)
+  -_robot_is_ready() : bool
   -_object_was_lifted(target) : bool
 }
 
@@ -80,7 +84,7 @@ NearestToOriginSorter ..|> ObjectSelector
 CompositeSelector ..|> ObjectSelector
 CompositeSelector o-- "1..*" ObjectSelector : chains
 
-CycleController --> CoordinateService
+CycleController ..> MappedScene : get_scene()
 CycleController --> ObjectSelector
 CycleController --> SharedState
 VisionPipeline ..> CoordinateService : "InferenceResult"

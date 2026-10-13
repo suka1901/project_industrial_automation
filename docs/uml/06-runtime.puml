@@ -33,6 +33,9 @@ class CaptureWorker <<thread>> {
 class InferenceWorker <<thread>> {
   +step()
 }
+class MappingWorker <<thread>> {
+  +step()
+}
 class CycleWorker <<thread>> {
   +step()
 }
@@ -49,11 +52,12 @@ class ThreadSupervisor {
 }
 
 class LatestResultHolder {
-  +__call__() : InferenceResult [0..1]
+  +__call__() : MappedScene [0..1]
 }
 
 class "Queue<Frame>\nmaxsize=2" as FrameQueue <<queue>>
 class "Queue<InferenceResult>\nmaxsize=2" as ResultQueue <<queue>>
+class "Queue<MappedScene>\nmaxsize=2" as SceneQueue <<queue>>
 class "Queue<PickRequest>\nmaxsize=8" as RequestQueue <<queue>>
 
 class Container {
@@ -68,14 +72,19 @@ class Container {
 
 Worker <|-- CaptureWorker
 Worker <|-- InferenceWorker
+Worker <|-- MappingWorker
 Worker <|-- CycleWorker
 Worker <|-- ConnectionWorker
-ThreadSupervisor o-- "4" Worker
+ThreadSupervisor o-- "5" Worker
 
 CaptureWorker --> FrameQueue : writes
 InferenceWorker --> FrameQueue : reads
 InferenceWorker --> ResultQueue : writes
-LatestResultHolder --> ResultQueue : drains
+MappingWorker --> ResultQueue : reads
+MappingWorker --> SceneQueue : writes
+MappingWorker --> CoordinateService
+LatestResultHolder --> SceneQueue : drains
+CycleController --> LatestResultHolder : get_scene
 CycleWorker --> RequestQueue : reads
 CycleWorker --> CycleController
 InferenceWorker --> VisionPipeline
@@ -85,6 +94,7 @@ ConnectionWorker --> RobotTransport
 TkView --> RequestQueue : writes
 TkView --> SharedState : reads snapshots
 InferenceWorker --> SharedState : writes
+MappingWorker --> SharedState : writes live poses
 CycleWorker --> SharedState : writes
 ConnectionWorker --> SharedState : writes
 

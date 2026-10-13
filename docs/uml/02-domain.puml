@@ -115,6 +115,12 @@ class InferenceResult <<frozen>> {
   +frame_sequence : int
 }
 
+class MappedScene <<frozen>> {
+  +objects : Sequence<DetectedObject>
+  +elapsed_ms : float
+  +frame_sequence : int
+}
+
 class PickRequest <<frozen>> {
   +shape : Shape [0..1]
   +colour : Colour [0..1]
@@ -177,6 +183,7 @@ BoundingBox ..> PixelPoint
 DetectedObject *-- Detection
 DetectedObject *-- WorldPose
 InferenceResult o-- Detection
+MappedScene o-- DetectedObject
 PickRequest --> Shape
 PickRequest --> Colour
 CycleReport *-- PickRequest
