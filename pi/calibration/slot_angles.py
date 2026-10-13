@@ -3,6 +3,15 @@
 Point the camera so the jig is in frame, seat each object in its own slot, and
 draw a box round that slot. The angle is read where the object already lies.
 
+WHEN THE JIG WILL NOT FIT IN THE FRAME, slide it into view and back out
+again. What is measured here is a ROTATION, and sliding does not change one:
+the slot angles stay valid as long as the jig is never TURNED on the way in
+or out. Push it along a straight edge, or against the sheet, rather than
+carrying it - and if it does get turned, these numbers are wrong by exactly
+that much, invisibly, because every placement is then out by the same amount.
+The jig does not have to be in frame at any other time: the placing positions
+live on the robot, and nothing at run time looks at it.
+
 The older way - lift the object straight out of the slot without turning it,
 set it on the picking sheet, measure there - put a hand movement between the
 slot and the number. Any twist during the lift became a permanent error in a
@@ -57,6 +66,10 @@ def build_source(kind: str, path: Optional[str]):
     if kind == "basler":
         from adapters.camera.camera import Camera
         return Camera()
+    if kind == "tap":
+        # main.py holds the camera; read the frames it writes out instead.
+        from adapters.camera.tap_source import TapFrameSource
+        return TapFrameSource(path or "/tmp/ina700_frame.jpg")
     from adapters.camera.file_source import FileFrameSource
     return FileFrameSource(directory=path or str(BASE_DIR / ".." / "model" / "dataset"))
 
@@ -112,15 +125,24 @@ def main() -> int:
     import cv2
 
     parser = argparse.ArgumentParser(description="Measure the jig's slot angles")
-    parser.add_argument("--camera", default="basler", choices=("basler", "file"))
+    parser.add_argument("--camera", default="basler", choices=("basler", "tap", "file"))
     parser.add_argument("--path", default=None)
     parser.add_argument("--out", default=str(BASE_DIR / "calibration" / "slot_angles.yaml"))
+    parser.add_argument("--config", default="config/config.yaml",
+                        help="the configuration whose orientation.kind decides HOW the angle is measured. It must be the one main.py runs: a slot angle measured with one estimator does not cancel against an object angle measured with another")
     parser.add_argument("--display-width", type=int, default=1100,
                         help="preview width in pixels; the measurement stays full size")
     args = parser.parse_args()
 
-    from adapters.detection.orientation_estimator import HarmonicOrientationEstimator
-    estimator = HarmonicOrientationEstimator()
+    # The slot angle and the object angle are subtracted from each other at
+    # run time, so every constant offset cancels - but only while BOTH are
+    # measured the same way. Building the estimator from the configuration is
+    # what keeps that true when orientation.kind changes.
+    from infrastructure.config_loader import load_config
+    from infrastructure.container import Container
+    config = load_config(BASE_DIR / args.config)
+    estimator = Container(config, BASE_DIR).build_orientation_estimator()
+    estimator_kind = str(config.get("orientation", {}).get("kind", "fitted")).lower()
 
     # Every seating of each shape, not one value per shape: the spread across
     # them is what says whether a single stored angle can be trusted.
@@ -279,16 +301,17 @@ def main() -> int:
                     history.clear()
                     armed = False
             if key in (ord("s"), ord("S")):
-                write_yaml(Path(args.out), seatings)
+                write_yaml(Path(args.out), seatings, estimator_kind)
     finally:
         source.close()
         cv2.destroyAllWindows()
 
-    write_yaml(Path(args.out), seatings)
+    write_yaml(Path(args.out), seatings, estimator_kind)
     return 0
 
 
-def write_yaml(path: Path, seatings: Dict[Shape, List[float]]) -> None:
+def write_yaml(path: Path, seatings: Dict[Shape, List[float]],
+               estimator_kind: str = "fitted") -> None:
     """Write the block to paste into config.yaml.
 
     Each angle is the circular mean over the seatings, and the play is carried
@@ -319,6 +342,10 @@ def write_yaml(path: Path, seatings: Dict[Shape, List[float]]) -> None:
 
     # Machine-readable, so preflight can check the paste happened and that
     # enough seatings were taken. Only the block above goes into config.yaml.
+    # Which estimator measured these. Preflight refuses a mismatch: slot and
+    # object angles only cancel while both come from the same estimator, and
+    # mixing them turns a 45 degree slot into a 45 degree error.
+    lines += ["", f"measured_with: {estimator_kind}"]
     lines += ["", "# Not for config.yaml - preflight reads this from here.",
               "slot_angle_quality:"]
     for shape, values in seatings.items():

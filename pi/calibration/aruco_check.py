@@ -44,7 +44,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Live ArUco marker check")
     parser.add_argument("--length", type=float, default=None,
                         help="marker side length in mm (default: from config.yaml)")
-    parser.add_argument("--camera", default="basler", choices=("basler", "file"))
+    parser.add_argument("--camera", default="basler", choices=("basler", "tap", "file"))
     parser.add_argument("--path", default=None, help="image folder for --camera file")
     parser.add_argument("--dictionary", default="DICT_5X5_100")
     args = parser.parse_args()
