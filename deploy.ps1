@@ -79,10 +79,11 @@ if ($localHash -ne $remoteHash) {
 Write-Host "config.yaml matches - the Pi has this calibration." -ForegroundColor Green
 
 # --- ask the Pi -------------------------------------------------------------
-$cameraFlag = if ($WithCamera) { "--length 100" } else { "--no-camera --length 0" }
+# run.sh already passes --length 100; argparse takes the last value.
+$cameraFlag = if ($WithCamera) { "" } else { "--no-camera --length 0" }
 Write-Host ""
 Write-Host "Pre-flight on the Pi..." -ForegroundColor Cyan
-& ssh $target "cd $Destination/pi && python3 tools/preflight.py --config config/profiles/pi.yaml $cameraFlag"
+& ssh $target "cd $Destination/pi && ./run.sh preflight $cameraFlag"
 $preflight = $LASTEXITCODE
 
 Write-Host ""
@@ -97,5 +98,5 @@ if (-not $WithCamera) {
 }
 Write-Host ""
 Write-Host "  ssh $target"
-Write-Host "  cd $Destination/pi && python3 main.py --config config/profiles/pi-gui.yaml"
+Write-Host "  cd $Destination/pi && ./run.sh"
 exit $preflight

@@ -21,6 +21,7 @@ INA700/
 ├─ README.md              this file: what it is and why it is built this way
 ├─ LAB.md                 what to do at the station, in order
 ├─ deploy.ps1 / .sh       build, copy to the Pi, verify, pre-flight it
+├─ pi/run.sh             the Pi's commands, with its profile already chosen
 ├─ make_submission.py     builds FinalProject_SurajKarki.zip
 ├─ pi/                    the vision application (Python)
 ├─ robot/                 RAPID modules for the ABB controller

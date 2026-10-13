@@ -18,12 +18,12 @@ DESTINATION=${PI_PATH:-'~/INA700'}
 REMEMBERED=.pi-address
 ADDRESS=""
 BUILD=yes
-CAMERA="--no-camera --length 0"
+CAMERA="--no-camera --length 0"   # run.sh passes --length 100; the last value wins
 
 for argument in "$@"; do
     case "$argument" in
         --skip-build) BUILD=no ;;
-        --with-camera) CAMERA="--length 100" ;;
+        --with-camera) CAMERA="" ;;
         -*) echo "Unknown option: $argument"; exit 1 ;;
         *) ADDRESS="$argument" ;;
     esac
@@ -67,7 +67,7 @@ echo "config.yaml matches - the Pi has this calibration."
 echo
 echo "Pre-flight on the Pi..."
 set +e
-ssh "$TARGET" "cd $DESTINATION/pi && python3 tools/preflight.py --config config/profiles/pi.yaml $CAMERA"
+ssh "$TARGET" "cd $DESTINATION/pi && ./run.sh preflight $CAMERA"
 PREFLIGHT=$?
 set -e
 
@@ -75,5 +75,5 @@ echo
 [ $PREFLIGHT -eq 0 ] && echo "  The Pi is ready." || echo "  Pre-flight failed on the Pi - see the rows above."
 echo
 echo "  ssh $TARGET"
-echo "  cd $DESTINATION/pi && python3 main.py --config config/profiles/pi-gui.yaml"
+echo "  cd $DESTINATION/pi && ./run.sh"
 exit $PREFLIGHT

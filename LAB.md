@@ -218,18 +218,28 @@ finishes.
 
 ---
 
-## 6. On the Pi — the only three things it does
+## 6. On the Pi — three commands, no flags
 
 ```bash
 cd ~/INA700/pi
-python3 tools/benchmark.py --config config/profiles/pi.yaml --count 20
-python3 main.py --config config/profiles/pi-gui.yaml   # window, needs a screen
-python3 main.py --config config/profiles/pi.yaml       # console, SSH is fine
+./run.sh preflight     # is this Pi ready
+./run.sh bench         # how fast the model runs here
+./run.sh               # the window: live view, dropdowns, Start cycle
 ```
+
+`./run.sh console` is the same system with a terminal instead of a window,
+which is what works over plain SSH — Tk cannot open a display there.
+`./run.sh help` lists the lot.
+
+The wrapper exists for one reason: it carries `--config config/profiles/pi.yaml`
+for you. The base config says `detector: yolo`, which the Pi cannot run, and
+forgetting the flag fails in a way that reads like a broken model rather than a
+wrong command. Anything you add is passed through — `./run.sh preflight
+--no-camera` works.
 
 The benchmark is the Pi's own answer and cannot be taken from the PC: expect
 about **426 ms median**, first frame near 1 s — that is warm-up — against a
-3000 ms budget. `ModuleNotFoundError: ultralytics` means `--config` was dropped.
+3000 ms budget.
 
 Three ways in, all live at once under `pi-gui.yaml`:
 
