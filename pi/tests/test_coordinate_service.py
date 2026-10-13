@@ -39,8 +39,7 @@ def detection(shape, angle_deg, confidence=0.9):
 def service(sign=1, slot=0.0, offset=0.0):
     return CoordinateService(FixedMapper(), angle_sign=sign,
                              angle_offset_deg=offset,
-                             slot_angles_deg={Shape.SQUARE: slot, Shape.STAR: slot},
-                             min_angle_confidence=0.10)
+                             slot_angles_deg={Shape.SQUARE: slot, Shape.STAR: slot})
 
 
 class TestThePlacingRotation(unittest.TestCase):
@@ -95,11 +94,12 @@ class TestThePlacingRotation(unittest.TestCase):
         pose = service(sign=-1, slot=45.0).to_pose(detection(Shape.CIRCLE, 33.0))
         self.assertEqual(pose.rz, 0.0)
 
-    def test_an_untrusted_angle_is_treated_as_zero(self):
+    def test_a_poorly_fitted_angle_is_still_acted_on(self):
+        """Nothing is refused on the fit. A weak reading is the best estimate
+        there is, and placing the object at it beats leaving it straight."""
         weak = detection(Shape.SQUARE, 30.0, confidence=0.01)
         pose = service(sign=1, slot=45.0).to_pose(weak)
-        # measured discarded, so the turn is the slot angle alone
-        self.assertAlmostEqual(pose.rz, 45.0, places=6)
+        self.assertAlmostEqual(pose.rz, 15.0, places=6)      # slot - measured
 
 
 class TestTheRestOfThePose(unittest.TestCase):

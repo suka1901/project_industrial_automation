@@ -109,27 +109,16 @@ orientation:
   # kind: harmonic only. kind: fitted needs no contrast gate: the gradient and
   # edge candidates are there precisely to measure the objects that fail it.
   min_contrast_levels: 20.0
-  # And below this the angle is not acted on. With kind: fitted this is an
-  # OVERLAP with an ideal shape, not a harmonic strength, so the number means
-  # something quite different from the old 0.10. Measured over 184 labelled
-  # objects, each read at five known rotations:
+  # Nothing is refused on a poor fit. Every detected object is placed at the
+  # best angle that could be worked out for it: when no segmentation fits
+  # well, the candidates' fit-weighted consensus is sent rather than a zero.
+  # Being a few degrees out is a worse placement; being unrotated is a wrong
+  # one. The fit travels with each reading and the log names the guesses, so
+  # a run can still be judged afterwards.
   #
-  #     gate   squares kept / p90 error   stars kept / p90 error
-  #     0.70        85%  /  11.0 deg          93%  /  0.39 deg
-  #     0.75        76%  /   3.4 deg          91%  /  0.23 deg
-  #     0.80        68%  /   2.0 deg          89%  /  0.17 deg
-  #
-  # 0.80 is where the squares stop being wrong by more than the jig's own
-  # play, and it costs the stars nothing. The objects it refuses are the pale
-  # ones; they are still picked, just placed unrotated, which the course
-  # allows for one of six. A circle is exempt - it has no angle to get wrong.
-  min_place_confidence: 0.80
-  # What to do when the angle cannot be trusted:
-  #   pick - pick it and place it unrotated, with a warning on screen. The
-  #          course requires every object to be picked in each cycle and allows
-  #          one of six to be misoriented, so this costs less than refusing.
-  #   skip - leave it on the board rather than place it crooked.
-  on_low_angle_confidence: pick
+  # Measured over 184 labelled objects at five known rotations each:
+  # readings above 0.80 held to 0.17 deg on stars and 2 deg on squares; below
+  # 0.60 they are guesses, and are logged as such.
 
 colour:
   kind: hsv              # hsv | passthrough (passthrough = offline mock only)

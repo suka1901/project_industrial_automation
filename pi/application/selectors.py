@@ -71,35 +71,6 @@ class ConfidenceSelector(ObjectSelector):
         return [o for o in objects if o.detection.confidence >= self._minimum]
 
 
-class OrientationConfidenceSelector(ObjectSelector):
-    """Decides what to do with an object whose angle cannot be trusted.
-
-    Two defensible answers, so it is a setting rather than a rule:
-
-    `pick`  - pick it anyway and place it unrotated. The assignment requires
-              every object to be picked in each cycle, and allows one of six
-              to be placed wrongly, so a doubtful angle costs less than a
-              refused pick. `CoordinateService` has already zeroed the
-              rotation and cleared `angle_trusted`, and the GUI says so.
-
-    `skip`  - leave it on the board rather than place it crooked. Right when
-              placement accuracy matters more than throughput.
-
-    A circle has no orientation to doubt and always passes either way.
-    """
-
-    PICK = "pick"
-    SKIP = "skip"
-
-    def __init__(self, policy: str = PICK) -> None:
-        self._policy = policy.lower()
-
-    def select(self, objects, request: PickRequest):
-        if self._policy != self.SKIP:
-            return list(objects)
-        return [o for o in objects if o.angle_trusted]
-
-
 class NearestToOriginSorter(ObjectSelector):
     """Orders survivors by distance from the work object origin."""
 

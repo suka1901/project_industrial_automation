@@ -176,39 +176,23 @@ orientation. Three things follow:
   the images freely. A system that regressed the angle from the network could
   not.
 
-A weak angle is refused rather than guessed: `Detection` carries
-`angle_confidence`, and `OrientationConfidenceSelector` drops the object before
-it reaches the robot. `Shape.is_rotationally_free` exempts the circle.
+**Nothing is ever refused on a doubtful angle.** Every detected object is
+placed at the best angle that could be worked out for it. When no segmentation
+fits well, the candidates' fit-weighted consensus is sent instead of a zero:
+they fail for different reasons — a shadow edge, a clipped tip, a hole in the
+mask — so what they agree on is more likely the object's angle than any one of
+them, and far more likely than nothing. Being a few degrees out is a worse
+placement; being unrotated is a wrong one.
 
-**Where its own 0.10 gate came from.** Every measurable object in the held-out set
-was measured, then the photo rotated by a known angle to see whether the
-reported angle followed:
+The fit still travels with every reading, and the log names each placement that
+rested on a guess, so a run can be judged afterwards. Nothing flashes on screen
+during it: a banner the operator must read and act on mid-cycle was a decision
+the system should be making for itself.
 
-| \|Z\| | n | median error | worst | under 3° |
-|---|---|---|---|---|
-| 0.00–0.05 | 5 | 24.7° | 31.3° | 0/5 |
-| 0.05–0.10 | 1 | 30.9° | 30.9° | 0/1 |
-| 0.10–0.15 | 18 | 0.2° | 43.1° | 12/18 |
-| 0.15–0.25 | 40 | 0.4° | 44.1° | 34/40 |
-| 0.25–1.00 | 12 | 0.2° | 0.8° | 12/12 |
-
-Below 0.10 the angle is not merely uncertain, it is wrong by 25–31° — a quarter
-turn on a square. Above 0.25 it is exact. The gate is not a guess, and lowering
-it to skip fewer objects would place those objects a quarter turn out.
-
-**What happens then is a policy, not a rule.** The assignment requires every
-object to be picked in each cycle, and allows one of six to be misoriented — so
-a refused pick costs more than a doubtful angle. The default is therefore to
-**pick it and place it unrotated**, with the rotation zeroed rather than
-believed, and a banner naming the shape:
-
-```
-ANGLE NOT MEASURED: STAR  -  placed unrotated.
-Move it away from the sheet edge, or use a coloured object.
-```
-
-`orientation.on_low_angle_confidence: skip` leaves it on the board instead,
-which is right when placement accuracy matters more than throughput.
+The angles are averaged as directions rather than as numbers, because they live
+on a circle of 360/N degrees. On a square, 1° and 89° are two degrees apart, not
+eighty-eight, and their arithmetic mean — 45° — is the one answer certainly
+wrong.
 
 ### What has to be in the camera's view
 

@@ -23,6 +23,7 @@ import threading
 import time
 from typing import Callable, List, Optional, Sequence, Tuple
 
+from adapters.gui.formatting import angle_confidence_text
 from domain.enums import Colour, Shape
 from domain.models import PickRequest, StateSnapshot
 from ports.interfaces import View
@@ -89,7 +90,6 @@ class ConsoleView(View):
         snapshot_provider: Callable[[], StateSnapshot],
         refresh_ms: int = 100,
         budget_ms: float = 3000.0,
-        place_confidence_gate: float = 0.10,
         has_stopped: Optional[Callable[[], bool]] = None,
     ) -> None:
         self._allowed_shapes = list(allowed_shapes)
@@ -100,7 +100,6 @@ class ConsoleView(View):
         # of 0 cannot turn the watcher into a busy loop on the Pi.
         self._poll_s = max(0.02, refresh_ms / 1000.0)
         self._budget_ms = budget_ms
-        self._place_gate = place_confidence_gate
         self._has_stopped = has_stopped or (lambda: False)
         self._last_status = ""
         self._stop = threading.Event()
@@ -185,16 +184,13 @@ class ConsoleView(View):
             print("    nothing on the sheet\n", flush=True)
             return
 
-        print(f"\n    {'shape':<8}{'colour':<9}{'conf':>6}{'|Z|':>8}"
+        print(f"\n    {'shape':<8}{'colour':<9}{'conf':>6}{'fit':>8}"
               f"{'x mm':>9}{'y mm':>9}{'rz deg':>9}")
         print("    " + "-" * 58)
         for o in objects:
-            angle_conf = "n/a" if o.shape.is_rotationally_free else \
-                f"{o.detection.angle_confidence:.3f}"
-            weak = "" if o.angle_trusted else "  WEAK"
             print(f"    {o.shape.value.lower():<8}{o.colour.value.lower():<9}"
-                  f"{o.detection.confidence:>6.2f}{angle_conf:>8}"
-                  f"{o.pose.x:>9.1f}{o.pose.y:>9.1f}{o.pose.rz:>9.1f}{weak}")
+                  f"{o.detection.confidence:>6.2f}{angle_confidence_text(o):>8}"
+                  f"{o.pose.x:>9.1f}{o.pose.y:>9.1f}{o.pose.rz:>9.1f}")
         over = "  OVER BUDGET" if elapsed > self._budget_ms else ""
         print(f"    inference {elapsed:.0f} ms{over}\n", flush=True)
 

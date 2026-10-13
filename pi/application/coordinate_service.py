@@ -26,35 +26,24 @@ class CoordinateService:
         angle_sign: int = 1,
         angle_offset_deg: float = 0.0,
         slot_angles_deg: Dict[Shape, float] | None = None,
-        min_angle_confidence: float = 0.05,
     ) -> None:
         self._mapper = mapper
         self._angle_sign = 1 if angle_sign >= 0 else -1
         self._angle_offset_deg = angle_offset_deg
         self._slot_angles = slot_angles_deg or {}
-        # Below this the measured angle is wrong by 25-31 degrees, so it is
-        # discarded rather than believed. See README for the measurements.
-        self._min_angle_confidence = min_angle_confidence
         # Mapping now runs on every frame, not once per cycle, so a missing
         # marker is reported when it goes missing rather than 2-3 times a second.
         self._reported_uncalibrated = False
-
-    def angle_is_trusted(self, detection: Detection) -> bool:
-        """Whether the outline showed its symmetry clearly enough to believe.
-
-        A circle has no orientation, so there is nothing to doubt.
-        """
-        if detection.shape.is_rotationally_free:
-            return True
-        return detection.angle_confidence >= self._min_angle_confidence
 
     def to_pose(self, detection: Detection) -> WorldPose:
         """Map one detection into a picking-work-object pose for the robot."""
         x_mm, y_mm = self._mapper.to_world_xy(detection.centre)
 
-        # An untrusted angle is treated as zero rather than acted on. Believing
-        # it would seat the object up to a quarter turn out.
-        measured = detection.angle_deg if self.angle_is_trusted(detection) else 0.0
+        # Whatever the estimator worked out is used. It reports a confidence
+        # alongside, but nothing here refuses on it: an object placed at the
+        # best angle available is at worst a few degrees out, where one placed
+        # unrotated is wrong by as much as the object was lying.
+        measured = detection.angle_deg
 
         # BOTH terms are camera angles: the object's, and the slot's, which
         # calibration/slot_angles.py measured with this same estimator and
@@ -86,6 +75,5 @@ class CoordinateService:
         if self._reported_uncalibrated:
             log.info("Coordinate mapper calibrated - positions are available again")
             self._reported_uncalibrated = False
-        return [DetectedObject(detection=d, pose=self.to_pose(d),
-                              angle_trusted=self.angle_is_trusted(d))
+        return [DetectedObject(detection=d, pose=self.to_pose(d))
                 for d in detections]

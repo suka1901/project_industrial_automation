@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from domain.enums import Shape
 from domain.models import BoundingBox, Detection, Frame
 from adapters.detection.fitted_orientation_estimator import (
-    FittedOrientationEstimator, area_harmonic_angle)
+    FittedOrientationEstimator, area_harmonic_angle, consensus_angle)
 from adapters.detection.shape_fit import fit_shape, ideal_shape
 
 PAPER = 230
@@ -89,6 +89,38 @@ class TestTheAngleTracksTheObject(unittest.TestCase):
         self.assertLess(abs(difference(measured.angle_deg, reference - 23.0, period)), 3.0)
 
 
+class TestItAlwaysGuesses(unittest.TestCase):
+    """A poor fit is a worse reading, not a reason to send nothing.
+
+    An object placed at a doubtful angle is a few degrees out; one placed
+    unrotated is out by however far it happened to be lying."""
+
+    def test_a_poor_fit_still_yields_an_angle(self):
+        # A square measured as if it were a star: nothing will fit well.
+        frame, square = scene(Shape.SQUARE, 20.0)
+        as_star = Detection(shape=Shape.STAR, colour=None, confidence=1.0,
+                            centre=square.centre, angle_deg=0.0, box=square.box)
+        measured = FittedOrientationEstimator().measure(frame, as_star)
+        self.assertLess(measured.confidence, 0.75)       # honestly reported
+        self.assertNotEqual(measured.angle_deg, 0.0)     # but still an answer
+
+    def test_the_consensus_averages_angles_as_directions(self):
+        """1 and 89 degrees on a square are two degrees apart, not eighty-eight,
+        and their arithmetic mean - 45 - is the one answer certainly wrong."""
+        self.assertAlmostEqual(consensus_angle([(1.0, 0.5), (89.0, 0.5)], 4),
+                               0.0, places=6)
+
+    def test_a_better_fit_pulls_the_consensus_towards_it(self):
+        angle = consensus_angle([(10.0, 0.9), (20.0, 0.1)], 4)
+        self.assertLess(angle, 12.0)
+        self.assertGreater(angle, 9.0)
+
+    def test_candidates_that_cancel_fall_back_to_the_best_one(self):
+        """Opposite directions average to nothing; the best fit is kept."""
+        self.assertAlmostEqual(consensus_angle([(0.0, 0.5), (45.0, 0.4)], 4),
+                               0.0, places=6)
+
+
 class TestWhatItRefuses(unittest.TestCase):
     def test_nothing_shaped_like_the_object_scores_zero(self):
         """Paper alone must not come back as a confident angle."""
@@ -100,7 +132,7 @@ class TestWhatItRefuses(unittest.TestCase):
         self.assertEqual(measured.angle_deg, 0.0)
 
     def test_a_square_does_not_pass_as_a_star(self):
-        """The fit is what the gate reads, so a wrong shape must score low."""
+        """The fit still has to be honest, even though nothing is refused on it."""
         frame, square = scene(Shape.SQUARE, 0.0)
         as_star = Detection(shape=Shape.STAR, colour=None, confidence=1.0,
                             centre=square.centre, angle_deg=0.0, box=square.box)

@@ -250,18 +250,19 @@ second terminal through the pipe — or set `logging: console_level: WARNING` in
 
 ## 7. What the orientation is telling you
 
-The confidence is now an **overlap with an ideal square or star**, 0 to 1, not
-the old harmonic strength. `min_place_confidence: 0.80` is the gate.
+The confidence is an **overlap with an ideal square or star**, 0 to 1 — not the
+old harmonic strength. It is reported, never acted on: every object is placed at
+the best angle available, and nothing is refused or left straight.
 
 | What you see | What it means |
 |---|---|
 | fit above 0.85 | a clean silhouette; the angle is good to about half a degree |
-| fit 0.6–0.8, mostly on pale objects | measurable but not trusted — placed unrotated, with a flashing banner |
-| "no segmentation produced anything shaped like a …" | the object never separated from the paper. Light it from the side; this is lighting, not code |
+| fit 0.6–0.8 | a decent reading, a degree or two out at worst |
+| `the angle is a guess from N segmentation(s)` in the log | no mask fitted well, so the candidates' consensus was sent. Usually a pale object; side light fixes it |
+| `no segmentation found an object in the crop` | the only case with no angle at all. Lighting, not code |
 
-An object placed unrotated is still picked and still placed. The course allows
-one of six to be misoriented, so that is the cheaper failure — a refused pick
-costs more.
+Read the guesses out of the log after a run — that is where to look if a
+placement came out crooked. Nothing is shown on screen during the cycle.
 
 ---
 

@@ -11,7 +11,6 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional, Sequence
 
-from adapters.gui.formatting import untrusted_angle_warning
 from domain.enums import Colour, Shape
 from domain.models import PickRequest, StateSnapshot
 from ports.interfaces import View
@@ -32,7 +31,6 @@ class TkView(View):
         snapshot_provider: Callable[[], StateSnapshot],
         refresh_ms: int = 100,
         budget_ms: float = 3000.0,
-        place_confidence_gate: float = 0.05,
         has_stopped: Optional[Callable[[], bool]] = None,
     ) -> None:
         self._allowed_shapes = list(allowed_shapes)
@@ -41,9 +39,6 @@ class TkView(View):
         self._snapshot_provider = snapshot_provider
         self._refresh_ms = refresh_ms
         self._budget_ms = budget_ms
-        # Below this the angle is not trusted and the object is not picked.
-        # Showing it explains why an object the camera clearly sees is skipped.
-        self._place_gate = place_confidence_gate
         # A worker that dies stops the whole application. Without this the
         # window stays up looking healthy and every cycle silently fails.
         self._has_stopped = has_stopped or (lambda: False)
@@ -56,9 +51,6 @@ class TkView(View):
         # What is currently on screen, so an unchanged frame costs nothing.
         self._timing_text = None
         self._status_text = None
-        # Drives the flashing warning. A static banner is easy to look past
-        # when the operator is watching the robot rather than the screen.
-        self._flash_on = False
         self._ticks = 0
 
         self._root = tk.Tk()
@@ -126,12 +118,6 @@ class TkView(View):
         self._preview = ttk.Label(body, text="waiting for the first frame",
                                   anchor="center", relief="sunken", width=40)
         self._preview.pack(fill="both", expand=True)
-
-        # A banner rather than a line in the status bar: an object placed
-        # unrotated is the one failure the operator must not read past.
-        self._warning_label = tk.Label(self._root, text="", anchor="w",
-                                       padx=8, pady=6, fg="#7A1F1F",
-                                       bg="#FFE08A", font=("", 11, "bold"))
 
         self._status_label = ttk.Label(self._root, text="starting up",
                                        relief="sunken", anchor="w", padding=4)
@@ -236,12 +222,10 @@ class TkView(View):
         try:
             self._render_preview(snapshot.preview)
         except Exception as exc:
-            # A preview failure must never stop the status line and the
-            # weak-angle banner being shown - those are what the operator
-            # needs when the picture is the thing that is broken.
+            # A preview failure must never stop the status line being shown -
+            # it is what the operator needs when the picture is the thing
+            # that is broken.
             log.debug("Preview failed: %s", exc)
-
-        self._show_warning(untrusted_angle_warning(snapshot.detections))
 
     def _set_text(self, widget, cache_name: str, text: str) -> None:
         """Configure a label only when its text has actually changed."""
@@ -251,32 +235,6 @@ class TkView(View):
 
 
 
-
-    FLASH_EVERY_TICKS = 4        # about twice a second at the default refresh
-    FLASH_COLOURS = (("#FFE08A", "#7A1F1F"),      # amber on dark red text
-                     ("#C62828", "#FFFFFF"))      # red on white
-
-    def _show_warning(self, text: str) -> None:
-        """Show a flashing banner while something needs moving.
-
-        Flashing rather than static: during a demo the operator is watching the
-        robot, and this has to be caught before the cycle starts, not after the
-        object has been placed unrotated.
-        """
-        if not text:
-            if self._warning_label.winfo_ismapped():
-                self._warning_label.pack_forget()
-            return
-
-        self._warning_label.config(text=text)
-        if not self._warning_label.winfo_ismapped():
-            self._warning_label.pack(fill="x", side="bottom",
-                                     before=self._status_label)
-
-        if self._ticks % self.FLASH_EVERY_TICKS == 0:
-            self._flash_on = not self._flash_on
-            background, foreground = self.FLASH_COLOURS[self._flash_on]
-            self._warning_label.config(bg=background, fg=foreground)
 
     CENTRE_COLOUR = (139, 0, 0)   # BGR: dark blue, visible on paper and table
     ANGLE_COLOUR = (60, 220, 60)      # BGR: green, distinct from the box

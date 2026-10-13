@@ -10,8 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from adapters.gui.formatting import (NOT_TRUSTED_MARK, angle_confidence_text,
-                                      untrusted_angle_warning)
+from adapters.gui.formatting import NO_ANGLE, angle_confidence_text
 from application.shared_state import SharedState
 from domain.enums import Colour, Shape
 from domain.models import BoundingBox, Detection, PixelPoint
@@ -51,63 +50,31 @@ class TestPreview(unittest.TestCase):
 
 
 class TestAngleConfidenceText(unittest.TestCase):
-    """The GUI must explain a skipped object rather than just omitting it."""
+    """The fit is information, not a warning: no object is ever refused on it."""
 
-    def _object(self, shape, angle_confidence, trusted=True):
+    def _object(self, shape, angle_confidence):
         from domain.models import DetectedObject, WorldPose
-        detection = Detection(shape=shape, colour=Colour.RED, confidence=0.9,
-                              centre=PixelPoint(0.0, 0.0), angle_deg=0.0,
-                              angle_confidence=angle_confidence)
-        return DetectedObject(detection=detection,
-                              pose=WorldPose(0.0, 0.0, 0.0, 0.0),
-                              angle_trusted=trusted)
+        measured = Detection(shape=shape, colour=Colour.RED, confidence=0.9,
+                             centre=PixelPoint(0.0, 0.0), angle_deg=0.0,
+                             angle_confidence=angle_confidence)
+        return DetectedObject(detection=measured,
+                              pose=WorldPose(0.0, 0.0, 0.0, 0.0))
 
-    def test_a_circle_has_no_angle_to_report(self):
-        text = angle_confidence_text(self._object(Shape.CIRCLE, 0.0), gate=0.10)
-        self.assertEqual(text, "n/a")
+    def test_a_circle_has_nothing_to_fit(self):
+        self.assertEqual(angle_confidence_text(self._object(Shape.CIRCLE, 0.0)),
+                         NO_ANGLE)
 
-    def test_a_trusted_angle_shows_the_value_alone(self):
-        text = angle_confidence_text(self._object(Shape.STAR, 0.21), gate=0.10)
-        self.assertEqual(text, "0.210")
+    def test_the_fit_is_shown_as_a_number(self):
+        self.assertEqual(angle_confidence_text(self._object(Shape.STAR, 0.91)),
+                         "0.910")
 
-    def test_an_untrusted_angle_is_marked(self):
-        # Assert against the constant, not a literal: the marker is deliberately
-        # short because the table column truncates anything longer.
-        text = angle_confidence_text(
-            self._object(Shape.STAR, 0.022, trusted=False), gate=0.10)
-        self.assertIn(NOT_TRUSTED_MARK.strip(), text)
-        self.assertIn("0.022", text)
+    def test_a_poor_fit_is_still_just_a_number(self):
+        """It is placed at the best angle available, so there is nothing to warn
+        about - only a reading to report."""
+        text = angle_confidence_text(self._object(Shape.STAR, 0.42))
+        self.assertEqual(text, "0.420")
+        self.assertNotIn("WEAK", text.upper())
 
-    def test_the_marker_is_short_enough_for_the_column(self):
-        """A clipped marker reads as nothing, so guard the length here."""
-        self.assertLessEqual(len(NOT_TRUSTED_MARK.strip()), 6)
-
-
-class TestUntrustedAngleWarning(unittest.TestCase):
-    """The banner must name the shapes, and vanish when there is nothing wrong."""
-
-    def _object(self, shape, trusted):
-        from domain.models import DetectedObject, WorldPose
-        detection = Detection(shape=shape, colour=Colour.RED, confidence=0.9,
-                              centre=PixelPoint(0.0, 0.0), angle_deg=0.0,
-                              angle_confidence=0.02 if not trusted else 0.3)
-        return DetectedObject(detection=detection,
-                              pose=WorldPose(0.0, 0.0, 0.0, 0.0),
-                              angle_trusted=trusted)
-
-    def test_silent_when_every_angle_is_trusted(self):
-        objects = [self._object(Shape.STAR, True), self._object(Shape.SQUARE, True)]
-        self.assertEqual(untrusted_angle_warning(objects), "")
-
-    def test_names_the_shapes_it_could_not_measure(self):
-        objects = [self._object(Shape.STAR, False), self._object(Shape.SQUARE, True)]
-        warning = untrusted_angle_warning(objects)
-        self.assertIn("STAR", warning)
-        self.assertNotIn("SQUARE", warning)
-        self.assertIn("UNROTATED", warning.upper())
-
-    def test_silent_with_nothing_on_the_board(self):
-        self.assertEqual(untrusted_angle_warning([]), "")
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,8 +16,14 @@ known rotations each (tools/orientation_bench.py):
      gating on it left a median error of 0.5 deg and a worst case near 2 deg.
 
 So the mask is chosen by shape fit, the angle is read from the whole area of
-that mask, and the fit score - not the harmonic strength - is the confidence
-the rest of the system gates on.
+that mask, and the fit score - not the harmonic strength - is the confidence.
+
+Nothing is ever refused. An object whose fit is poor is still placed at the
+best angle that can be worked out for it: the candidates rarely fail in the
+same direction, so their fit-weighted consensus beats any one of them, and
+beats sending a zero. Being 10 degrees out is a worse placement; being
+unrotated is a wrong one. The fit still travels with the reading, so the log
+says which placements were guesses.
 
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
@@ -27,7 +33,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 from domain.models import Detection, Frame, OutlineMeasurement, PixelPoint
 from adapters.detection.segmentation import (CANDIDATE_MASKS, covers_whole_crop,
@@ -55,9 +61,9 @@ class FittedOrientationEstimator(OrientationEstimator):
         # Tried in order, cheapest first, and the sweep stops early on a good
         # fit - so a plainly visible object costs one segmentation, not four.
         self._candidates = candidates or list(CANDIDATE_MASKS)
-        # Below this, no segmentation produced something shaped like the
-        # object, so there is no angle to report. Measured: good readings sit
-        # above 0.75, wrong ones below 0.6.
+        # Not a refusal: below this the reading is reported as a guess and
+        # logged as one. Measured: trustworthy readings sit above 0.75, and
+        # the ones that are wrong by more than a degree or two below 0.6.
         self._min_fit = min_fit
         self._good_enough_fit = good_enough_fit
         self._step_deg = step_deg
@@ -82,21 +88,36 @@ class FittedOrientationEstimator(OrientationEstimator):
             centre = self._centre_of(otsu_mask(crop), origin)
             return OutlineMeasurement(0.0, centre or detection.centre, 0.0)
 
-        best = self._best_fit(crop, order)
-        if best is None:
-            log.warning("%s: no segmentation produced anything shaped like a "
-                        "%s, so it will be placed unrotated. Look at the "
-                        "lighting on this object.",
-                        detection.shape.value, detection.shape.value.lower())
+        readings = self._candidate_readings(crop, order)
+        if not readings:
+            # Nothing anywhere in the crop looked like an object at all. This
+            # is the only case with no angle to give, and it is a lighting
+            # fault rather than a measurement one.
+            log.warning("%s: no segmentation found an object in the crop, so "
+                        "it will be placed unrotated. Light this object from "
+                        "the side; there is nothing here to measure.",
+                        detection.shape.value)
             centre = self._centre_of(otsu_mask(crop), origin)
             return OutlineMeasurement(0.0, centre or detection.centre, 0.0)
 
-        mask, fitted_angle, fit, name = best
+        mask, fitted_angle, fit, name = max(readings, key=lambda row: row[2])
         centre = self._centre_of(mask, origin) or detection.centre
-        angle = self._refined_angle(mask, order, fitted_angle)
 
-        log.debug("%s measured at %.2f deg, fit %.2f from the %s mask",
-                  detection.shape.value, angle, fit, name)
+        if fit >= self._min_fit:
+            angle = self._refined_angle(mask, order, fitted_angle)
+            log.debug("%s measured at %.2f deg, fit %.2f from the %s mask",
+                      detection.shape.value, angle, fit, name)
+            return OutlineMeasurement(angle, centre, fit)
+
+        # A poor fit everywhere. Rather than send nothing, take what the
+        # candidates agree on: they fail for different reasons - a shadow
+        # edge, a clipped tip, a hole in the mask - so the directions they
+        # agree on are more likely the object's than any single one of them.
+        angle = consensus_angle([(row[1], row[2]) for row in readings], order)
+        log.info("%s: best fit only %.2f (%s mask), so the angle is a guess "
+                 "from %d segmentation(s): %.1f deg. It is placed turned, not "
+                 "left straight.",
+                 detection.shape.value, fit, name, len(readings), angle)
         return OutlineMeasurement(angle, centre, fit)
 
     # --- the parts -------------------------------------------------------
@@ -121,12 +142,16 @@ class FittedOrientationEstimator(OrientationEstimator):
         crop = frame.image[v_min:v_max, u_min:u_max]
         return (crop, (u_min, v_min)) if crop.size else None
 
-    def _best_fit(self, crop: Any,
-                  order: int) -> Optional[Tuple[Any, float, float, str]]:
-        """Segment every way asked for and keep whichever fits the shape best."""
+    def _candidate_readings(self, crop: Any,
+                            order: int) -> List[Tuple[Any, float, float, str]]:
+        """Every segmentation that produced a measurable object.
+
+        All of them, not just the winner: when the winner is poor they are
+        what the consensus is taken over.
+        """
         import numpy as np
 
-        best: Optional[Tuple[Any, float, float, str]] = None
+        readings: List[Tuple[Any, float, float, str]] = []
         for name in self._candidates:
             segmenter = CANDIDATE_MASKS.get(name)
             if segmenter is None:
@@ -145,14 +170,11 @@ class FittedOrientationEstimator(OrientationEstimator):
                 continue
 
             angle, fit = fitted
-            if best is None or fit > best[2]:
-                best = (mask, angle, fit, name)
+            readings.append((mask, angle, fit, name))
             if fit >= self._good_enough_fit:
                 break               # plainly this shape; no need to try more
 
-        if best is None or best[2] < self._min_fit:
-            return None
-        return best
+        return readings
 
     def _refined_angle(self, mask: Any, order: int, fitted_angle: float) -> float:
         """The area harmonic's angle, kept only while it agrees with the fit.
@@ -224,3 +246,28 @@ def area_harmonic_angle(mask: Any, order: int) -> Optional[float]:
     if math.hypot(real, imaginary) <= 1e-9:
         return None
     return math.degrees(math.atan2(imaginary, real)) / order
+
+
+def consensus_angle(readings: Sequence[Tuple[float, float]], order: int) -> float:
+    """One angle from several weak ones, weighted by how well each fitted.
+
+    Angles of an N-fold shape live on a circle of 360/N degrees, so they are
+    averaged as directions rather than as numbers: 1 degree and 89 degrees on
+    a square are two degrees apart, not eighty-eight, and averaging them
+    arithmetically gives 45 - the one answer that is certainly wrong.
+    """
+    import math
+
+    period = 360.0 / order
+    real = imaginary = 0.0
+    for angle, weight in readings:
+        phase = 2.0 * math.pi * (angle % period) / period
+        real += weight * math.cos(phase)
+        imaginary += weight * math.sin(phase)
+
+    if math.hypot(real, imaginary) <= 1e-9:
+        # The candidates point in opposite directions and cancel. Fall back to
+        # the best-fitting one rather than the meaningless average.
+        return max(readings, key=lambda row: row[1])[0] % period
+
+    return (math.degrees(math.atan2(imaginary, real)) / 360.0 * period) % period

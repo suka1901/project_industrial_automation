@@ -81,8 +81,11 @@ def main() -> int:
     matched = missed = spurious = exact = 0
     colours: collections.Counter = collections.Counter()
     confidence: Dict[str, List[float]] = collections.defaultdict(list)
-    refused: List[str] = []
-    gate = config.get("orientation", {}).get("min_place_confidence", 0.10)
+    # Not a gate - nothing is refused on the fit any more. These are the
+    # readings the system would have had to guess at, which is what to look
+    # at when a placement came out crooked.
+    guessed: List[str] = []
+    guess_below = float(config.get("orientation", {}).get("min_fit", 0.60))
 
     for path in images:
         image = cv2.imread(str(path))
@@ -95,9 +98,9 @@ def main() -> int:
             colours[detection.colour.value] += 1
             confidence[detection.shape.value.upper()].append(detection.angle_confidence)
             if (not detection.shape.is_rotationally_free
-                    and detection.angle_confidence < gate):
-                refused.append(f"{path.stem}  {detection.shape.value} "
-                               f"|Z| {detection.angle_confidence:.3f}")
+                    and detection.angle_confidence < guess_below):
+                guessed.append(f"{path.stem}  {detection.shape.value} "
+                               f"fit {detection.angle_confidence:.3f}")
 
         truth = ground_truth(split / "labels" / f"{path.stem}.txt", names)
         exact += truth == found
@@ -118,20 +121,21 @@ def main() -> int:
     if colours.get("UNKNOWN"):
         print(f"  {colours['UNKNOWN']} object(s) unnamed - check the colour thresholds")
 
-    print(f"\nangle confidence |Z|, gate at {gate}:")
+    print(f"\nshape fit, a guess below {guess_below}:")
     for shape in sorted(confidence):
         values = confidence[shape]
         if not values:
             continue
-        below = sum(1 for v in values if v < gate)
+        below = sum(1 for v in values if v < guess_below)
         note = "  (no orientation to measure)" if shape == "CIRCLE" else \
-               f"  below gate: {below}"
+               f"  guessed: {below}"
         print(f"  {shape:7s} n={len(values):3d}  median {statistics.median(values):.3f}"
               f"{note}")
 
-    if refused:
-        print(f"\n{len(refused)} pick(s) would be refused rather than placed crooked:")
-        for line in refused[:12]:
+    if guessed:
+        print(f"\n{len(guessed)} angle(s) came from a consensus rather than a "
+              f"clean fit - still placed turned, just less precisely:")
+        for line in guessed[:12]:
             print(f"  {line}")
     return 0
 
