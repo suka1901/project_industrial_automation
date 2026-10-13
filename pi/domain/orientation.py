@@ -60,11 +60,6 @@ def resample_radial(samples: Sequence[RadialSample],
 
 def harmonic_orientation(radii: Sequence[float], order: int) -> Tuple[float, float]:
     """Orientation in degrees and a 0-1 confidence, from a radial signature.
-
-    Z = sum r_k * exp(i * N * theta_k); rotating the shape by alpha multiplies
-    Z by exp(i*N*alpha), so arg(Z)/N is the orientation. arg() lands in
-    (-pi, pi], so the result is already folded into the symmetry period, and
-    |Z| collapses for a circle, which gives the confidence for free.
     """
     if order <= 0 or len(radii) < 8:
         return 0.0, 0.0

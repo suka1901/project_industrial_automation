@@ -11,7 +11,8 @@ import math
 from typing import Any, List, Optional, Tuple
 
 from domain.models import Detection, Frame, OutlineMeasurement, PixelPoint
-from adapters.detection.segmentation import object_mask
+from adapters.detection.segmentation import (contrast_levels,
+                                             covers_whole_crop, object_mask)
 from domain.orientation import harmonic_orientation, resample_radial
 from ports.interfaces import OrientationEstimator
 
@@ -32,6 +33,7 @@ class HarmonicOrientationEstimator(OrientationEstimator):
         binary_threshold: int = 0,
         bins: int = 180,
         min_confidence: float = 0.05,
+        min_contrast_levels: float = 30.0,
     ) -> None:
         # Padding keeps a star's thin points inside a tight detection box.
         self._padding = padding_px
@@ -39,6 +41,11 @@ class HarmonicOrientationEstimator(OrientationEstimator):
         self._threshold = binary_threshold
         self._bins = bins
         self._min_confidence = min_confidence
+        # Below this the object and the paper are the same brightness and
+        # there is no outline to trace. 30 sits in the empty band between the
+        # objects that measure to 0.05 deg (37 and up) and the two that do not
+        # (16 and 25) - see contrast_levels for the measurements.
+        self._min_contrast = min_contrast_levels
 
     def measure(self, frame: Frame, detection: Detection) -> OutlineMeasurement:
         """Trace the outline once and report angle, centre and confidence."""
@@ -90,6 +97,17 @@ class HarmonicOrientationEstimator(OrientationEstimator):
         if crop.size == 0:
             return None
 
+        contrast = contrast_levels(crop, self._threshold)
+        if contrast < self._min_contrast:
+            # Say what is actually wrong. Segmentation will still return
+            # something for a crop like this, and the angle taken from it is
+            # confidently wrong rather than obviously wrong - which is worse.
+            log.warning("%s has only %.0f grey levels of contrast against the "
+                        "paper (need %.0f): no outline to measure, so it will "
+                        "be placed unrotated. This is lighting, not software.",
+                        detection.shape.value, contrast, self._min_contrast)
+            return None
+
         return object_mask(crop, self._threshold), u_min, v_min
 
     def _largest_contour(self, frame: Frame, detection: Detection):
@@ -108,6 +126,18 @@ class HarmonicOrientationEstimator(OrientationEstimator):
             return None
 
         largest = max(contours, key=cv2.contourArea)
+
+        # Say what actually went wrong. An outline this big is the crop
+        # itself, which means the object never separated from the paper -
+        # and the harmonic estimator would otherwise report "no N-fold
+        # structure", which is true of a rectangle and blames the wrong step.
+        if covers_whole_crop(cv2.contourArea(largest), mask):
+            log.warning("%s did not separate from the paper: its outline "
+                        "covers the whole detection box, so there is nothing "
+                        "to measure. Look at glare and exposure, not at the "
+                        "angle estimator.", detection.shape.value)
+            return None
+
         return [(float(point[0][0]) + u_min, float(point[0][1]) + v_min)
                 for point in largest]
 

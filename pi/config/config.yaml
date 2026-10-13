@@ -19,19 +19,35 @@ camera:
   directory: ../model/dataset/samples
   loop: true
   # kind: basler
-  serial_number: null    # null = first camera found (acA2440-75uc, 24202295)
-  # These are PUSHED TO THE CAMERA on every run and override whatever Pylon
-  # Viewer is showing. Run tools/preflight.py: it reports the camera's own
-  # exposure and gain, and those are the numbers to copy in here.
-  # Set both to null to leave the camera's settings alone.
-  exposure_us: 3000      # measured from the camera 2026-09-04
-  gain: 0.0              # lowest noise; there is plenty of light
-  # How often the capture thread actually grabs. The camera can deliver 71.8
-  # fps, but inference does about 2.4, so anything above a few fps is grabbed
-  # and dropped unread - 15 MB a frame of pure waste, and a pinned core that
-  # starves the GUI. 10 keeps the preview lively without competing.
-  capture_fps: 10.0
+  serial_number: null    # null = first camera found 
+  # Raised from 3000 on 2026-09-16. At 3000 the sheet read 53/255 against a
+  # target of 180-210 - roughly 3.7x too dark, and contrast scales with
+  # signal, so every object sat that much closer to the paper. The photos the
+  # model was trained on had the sheet at 144-153.
+  # At 11000 us the camera still runs about 89 fps against a capture_fps of
+  # 10, so the exposure costs nothing. Check with preflight and adjust: the
+  # response is not perfectly linear at the ends.
+  exposure_us: 11000
+  gain: 0.0              # lowest noise; raise exposure before ever raising this
+  #The camera can deliver 71.8 fps, but inference does about 2.4, so 
+  #anything above a few fps is grabbed and dropped unread - 15 MB a frame of pure waste, and a  
+  # pinned core that starves the GUI. 10 keeps the preview lively without competing.
+  capture_fps: 15.0
+  # Where to drop the newest frame for another process to read. The Basler
+  # can only be opened once, so a calibration tool cannot take its own frames
+  # while main.py is running - and angle_match.py has to, because it measures
+  # the object before and after a cycle that only main.py can command.
+  # null = off, which costs nothing. Roughly 70 ms of JPEG encoding each time
+  # it fires, so leave it off for a production run.
+  frame_tap: null
+  frame_tap_interval_s: 0.5
   timeout_ms: 5000
+  # Ask for the whole sensor on every open. The camera remembers its area of
+  # interest in its own memory, so a crop left behind in Pylon Viewer survives
+  # a power cycle and quietly narrows the field of view - and a cropped image
+  # looks exactly like a longer lens, with nothing in it saying so. Set false
+  # only to run deliberately cropped, which is faster and sees less.
+  full_sensor: true
   show_window: false     # true shows the raw feed while aiming
 
 detector:
@@ -52,16 +68,62 @@ detector:
     2: STAR
 
 orientation:
-  padding_px: 8          # keeps a star's thin points inside the crop
+  # fitted   - segment several ways, keep whichever mask an ideal square or
+  #            star lays over best, and read the angle off that mask. The
+  #            overlap is also the confidence, which is the number the gates
+  #            below work on.
+  # harmonic - the original: one Otsu mask, angle from the outline's N-th
+  #            harmonic, confidence from how N-lobed that outline is. Kept so
+  #            the two can be compared at the station.
+  kind: fitted
+  # Tried in this order, stopping at the first mask that plainly fits:
+  #   otsu     brightness - a dark object on white paper
+  #   chroma   colour, ignoring brightness - survives shadow and glare
+  #   gradient the border's step in brightness - the only one that finds a
+  #            WHITE object on white paper
+  #   edges    Canny's outline, filled - strict, but precise when it answers
+  mask_candidates: [otsu, chroma, gradient, edges]
+  # Overlap with an ideal shape, 0 to 1. Measured on the labelled photos:
+  # right answers sit above 0.75, wrong ones below 0.6.
+  min_fit: 0.60          # below this there is no angle to report at all
+  good_enough_fit: 0.85  # stop trying other segmentations once this is met
+  fit_step_deg: 2.0      # sweep step; a parabola refines the winner
+  agreement_deg: 4.0     # how far the two angle readings may differ
+  padding_px: 4          # keeps a star's thin points inside the crop
   binary_threshold: 0    # 0 = Otsu, adapts to lab lighting
-  bins: 180              # directions sampled around the outline
-  # Below this the shape shows no N-fold structure and any angle would be
-  # noise, so the estimator reports no rotation instead of guessing.
+  bins: 180              # directions sampled around the outline  (harmonic only)
+  # kind: harmonic only. Below this the outline shows no N-fold structure and
+  # any angle would be noise, so it reports no rotation instead of guessing.
+  # kind: fitted judges a reading by min_fit above instead.
   min_confidence: 0.05
-  # And below this the object is not picked at all. Measured on the real
-  # photos: above 0.10 the angle held to 1.5 deg, below 0.05 it was 12 deg out.
-  # A circle is exempt - it has no orientation to get wrong.
-  min_place_confidence: 0.10
+  # Grey levels of separation between the object and the paper, below which
+  # there is no outline to trace. Measured across the labelled photos:
+  #     contrast 37-120  ->  angle error 0.05-0.46 deg
+  #     contrast 16, 25  ->  angle error 2.81, 9.11 deg
+  # Both failures were WHITE objects on white paper - three or four grey
+  # levels apart, less than the sensor's noise. Otsu then returns the paper
+  # and the angle is confidently wrong. Canny and a LAB colour distance fail
+  # the same way, so this is a gate rather than a knob: a low reading means
+  # the lighting cannot show the object's edge, and the answer is a side
+  # light or a non-white sheet, not a smaller number here.
+  # kind: harmonic only. kind: fitted needs no contrast gate: the gradient and
+  # edge candidates are there precisely to measure the objects that fail it.
+  min_contrast_levels: 20.0
+  # And below this the angle is not acted on. With kind: fitted this is an
+  # OVERLAP with an ideal shape, not a harmonic strength, so the number means
+  # something quite different from the old 0.10. Measured over 184 labelled
+  # objects, each read at five known rotations:
+  #
+  #     gate   squares kept / p90 error   stars kept / p90 error
+  #     0.70        85%  /  11.0 deg          93%  /  0.39 deg
+  #     0.75        76%  /   3.4 deg          91%  /  0.23 deg
+  #     0.80        68%  /   2.0 deg          89%  /  0.17 deg
+  #
+  # 0.80 is where the squares stop being wrong by more than the jig's own
+  # play, and it costs the stars nothing. The objects it refuses are the pale
+  # ones; they are still picked, just placed unrotated, which the course
+  # allows for one of six. A circle is exempt - it has no angle to get wrong.
+  min_place_confidence: 0.80
   # What to do when the angle cannot be trusted:
   #   pick - pick it and place it unrotated, with a warning on screen. The
   #          course requires every object to be picked in each cycle and allows
@@ -72,10 +134,19 @@ orientation:
 colour:
   kind: hsv              # hsv | passthrough (passthrough = offline mock only)
   min_saturation: 80
-  min_value: 50
+  # 50 threw the object away with the noise: dark green circles and blue
+  # stars in shadow had nearly every pixel below it and came out UNKNOWN.
+  # 35 recovers all ten of those without reaching into the black objects.
+  min_value: 35
   # Share of the OBJECT's own pixels one hue must cover to name it. Measured:
   # real colours cover 20-100%, hue noise on a black object under 1.4%.
   min_fraction: 0.10
+  # A real colour agrees with itself. Genuinely coloured objects score 0.96
+  # and up here; a dark object's few saturated pixels scatter and never got
+  # above 0.82. Below this the object falls through to the brightness test,
+  # which is the safe failure - UNKNOWN just fails to match a colour request,
+  # where a confident wrong colour sends the robot to the wrong object.
+  min_hue_agreement: 0.85
   # White and black have no hue, so they are judged on brightness against the
   # paper instead. Fractions of the paper's own level, so they hold as the
   # lighting moves.
@@ -135,7 +206,10 @@ aruco:
   #   3. Both wrong in a way that swaps X and Y -> angle 90 or 270.
   #      Only Y wrong, mirrored about the sheet centre -> y_axis_flipped true.
   # Repeat with the object at a second corner before believing the answer.
-  marker_angle_deg: 0.0        # 0 / 90 / 180 / 270 - confirm with the test above
+  # Measured 2026-09-11 with the circle at 50, 35 from the origin corner:
+  # the reading came back rotated a quarter turn about the marker centre,
+  # so the camera sees the sheet turned 90 deg from the printed page.
+  marker_angle_deg: 90.0       # 0 / 90 / 180 / 270 - confirm with the test above
   y_axis_flipped: false        # flip if a test pick comes out mirrored in Y
   redetect_every_n_frames: 1   # 1 = re-solve every frame; raise if time is tight
   hold_last_good: true         # keep working if a hand briefly covers the marker
@@ -186,9 +260,9 @@ coordinates:
   # different symmetry periods, which is the jig plate's own rotation showing
   # through both: independent confirmation that neither is an artefact.
   place_slot_angles_deg:
-    CIRCLE: 0.00     # no orientation to measure
-    SQUARE: 45.78    # 5 seatings, play 0.04 deg of a 90 deg period
-    STAR: 45.31      # 5 seatings, play 0.18 deg of a 72 deg period
+    CIRCLE: 0.00   # 1 seating(s), play 0.00 deg
+    STAR: 56.05   # 6 seating(s), LOOSE: 10.83 deg of a 72 deg period
+    SQUARE: 53.48   # 5 seating(s), play 0.30 deg
 
 robot:
   # This file IS the lab profile, so it expects a real robot. The mock and
@@ -214,6 +288,13 @@ robot:
   # AND the motion has finished, so this waits on a person, not a machine.
   reply_timeout_s: 300.0
   max_attempts: 3        # first try plus the two retries the course allows
+  # Pause before a retry, so it looks at a NEW frame. Straight away it read
+  # the same scene as the failed attempt and failed the same way.
+  retry_delay_s: 1.5
+  # A cycle requested while the robot is not connected waits this long for it
+  # instead of spending all three attempts in the same second. Past this the
+  # cycle is reported as not attempted, with the attempts still unused.
+  connect_wait_s: 30.0
   # After the robot reports success the board is checked again: an object of
   # the same shape still within this distance means the cup never lifted it.
   # This is what makes the retry real, since the robot has no grip sensor.
@@ -231,15 +312,16 @@ gui:
   #           which is what makes an SSH session on the Pi work; Tk fails
   #           there with "no display name and no $DISPLAY".
   kind: tk
-  # Half the capture period, deliberately. Tk reschedules with after() AFTER
-  # render() returns, so the real period is refresh_ms + render time - at 100
-  # against a 10 fps camera the GUI is structurally slower than the frames and
-  # silently drops about one in six, which reads as judder rather than lag.
-  # Polling twice per frame fixes that; it cannot make frames fresher, because
-  # the newest frame is already ~50 ms old on average. For that, raise
-  # capture_fps instead. The extra polls are nearly free: an unchanged table
-  # and unchanged text do no drawing work.
-  refresh_ms: 50
+  refresh_ms: 100
+  # Type commands in the terminal that launched the window. Ignored when
+  # kind is console, which already owns its terminal. Tk has to hold the main
+  # thread, so this reads stdin on a thread of its own.
+  terminal_input: false
+  # A named pipe any other terminal can write to, so the system keeps
+  # one terminal for its own output and commands come from another:
+  #     echo "circle red" > /tmp/ina700.cmd
+  # null disables it. Works alongside either view.
+  command_pipe: null
 
 logging:
   level: INFO
