@@ -72,6 +72,7 @@ class Container:
                 gain=section.get("gain"),
                 timeout_ms=section.get("timeout_ms", 5000),
                 show_window=section.get("show_window", False),
+                full_sensor=section.get("full_sensor", True),
             )
 
         if kind == "file":
@@ -130,12 +131,30 @@ class Container:
 
     def build_orientation_estimator(self) -> OrientationEstimator:
         section = self._config.get("orientation", {})
+        kind = str(section.get("kind", "fitted")).lower()
+
+        if kind == "fitted":
+            from adapters.detection.fitted_orientation_estimator import (
+                FittedOrientationEstimator)
+            return FittedOrientationEstimator(
+                padding_px=section.get("padding_px", 8),
+                candidates=section.get("mask_candidates"),
+                min_fit=section.get("min_fit", 0.60),
+                good_enough_fit=section.get("good_enough_fit", 0.85),
+                step_deg=section.get("fit_step_deg", 2.0),
+                agreement_deg=section.get("agreement_deg", 4.0),
+            )
+
+        if kind != "harmonic":
+            raise ValueError(f"Unknown orientation kind: {kind}")
+
         from adapters.detection.orientation_estimator import HarmonicOrientationEstimator
         return HarmonicOrientationEstimator(
             padding_px=section.get("padding_px", 8),
             binary_threshold=section.get("binary_threshold", 0),
             bins=section.get("bins", 180),
             min_confidence=section.get("min_confidence", 0.05),
+            min_contrast_levels=section.get("min_contrast_levels", 30.0),
         )
 
     def build_colour_classifier(self) -> ColourClassifier:
@@ -150,8 +169,9 @@ class Container:
 
         return HsvColourClassifier(
             min_saturation=section.get("min_saturation", 80),
-            min_value=section.get("min_value", 50),
+            min_value=section.get("min_value", 35),
             min_fraction=section.get("min_fraction", 0.10),
+            min_hue_agreement=section.get("min_hue_agreement", 0.85),
             achromatic_max_saturation=section.get("achromatic_max_saturation", 70),
             white_of_paper=section.get("white_of_paper", 0.80),
             black_of_paper=section.get("black_of_paper", 0.45),

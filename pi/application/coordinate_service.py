@@ -10,7 +10,7 @@ import logging
 from typing import Dict, List, Sequence
 
 from domain.enums import Shape
-from domain.geometry import place_rotation_deg
+from domain.geometry import normalise_for_shape, place_rotation_deg
 from domain.models import Detection, DetectedObject, WorldPose
 from ports.interfaces import CoordinateMapper
 
@@ -26,7 +26,7 @@ class CoordinateService:
         angle_sign: int = 1,
         angle_offset_deg: float = 0.0,
         slot_angles_deg: Dict[Shape, float] | None = None,
-        min_angle_confidence: float = 0.10,
+        min_angle_confidence: float = 0.05,
     ) -> None:
         self._mapper = mapper
         self._angle_sign = 1 if angle_sign >= 0 else -1
@@ -35,6 +35,9 @@ class CoordinateService:
         # Below this the measured angle is wrong by 25-31 degrees, so it is
         # discarded rather than believed. See README for the measurements.
         self._min_angle_confidence = min_angle_confidence
+        # Mapping now runs on every frame, not once per cycle, so a missing
+        # marker is reported when it goes missing rather than 2-3 times a second.
+        self._reported_uncalibrated = False
 
     def angle_is_trusted(self, detection: Detection) -> bool:
         """Whether the outline showed its symmetry clearly enough to believe.
@@ -53,12 +56,19 @@ class CoordinateService:
         # it would seat the object up to a quarter turn out.
         measured = detection.angle_deg if self.angle_is_trusted(detection) else 0.0
 
-        # Image rotation into the robot's rotation sense.
-        object_angle = self._angle_sign * measured + self._angle_offset_deg
-
-        # Then the wrist correction the vacuum pick makes necessary.
+        # BOTH terms are camera angles: the object's, and the slot's, which
+        # calibration/slot_angles.py measured with this same estimator and
+        # stored raw. So subtract them in the camera's sense FIRST, and only
+        # then turn the result into the robot's.
+        #
+        # Applying angle_sign to the object alone computed slot + measured
+        # instead of -(slot - measured): the sign flipped one term of a
+        # subtraction, which is not a change of sense but a different sum. A
+        # square sitting square-on came out 90 degrees round.
         slot_angle = self._slot_angles.get(detection.shape, 0.0)
-        rz = place_rotation_deg(object_angle, detection.shape, slot_angle)
+        turn = place_rotation_deg(measured, detection.shape, slot_angle)
+        rz = normalise_for_shape(self._angle_sign * turn + self._angle_offset_deg,
+                                 detection.shape, 0.0)
 
         # Z is always 0: the robot owns the pick height, in PICK_SURFACE_Z_MM.
         # It has to - the camera sees one plane and cannot measure how thick an
@@ -68,8 +78,14 @@ class CoordinateService:
     def to_objects(self, detections: Sequence[Detection]) -> List[DetectedObject]:
         """Map a batch of detections, skipping any the mapper cannot handle."""
         if not self._mapper.is_calibrated():
-            log.error("Coordinate mapper is not calibrated - run the calibration script")
+            if not self._reported_uncalibrated:
+                log.error("Coordinate mapper is not calibrated - is the ArUco "
+                          "marker in view? Positions resume once it is seen.")
+                self._reported_uncalibrated = True
             return []
+        if self._reported_uncalibrated:
+            log.info("Coordinate mapper calibrated - positions are available again")
+            self._reported_uncalibrated = False
         return [DetectedObject(detection=d, pose=self.to_pose(d),
                               angle_trusted=self.angle_is_trusted(d))
                 for d in detections]

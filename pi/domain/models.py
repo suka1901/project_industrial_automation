@@ -61,7 +61,11 @@ class Detection:
     colour: Colour
     confidence: float
     centre: PixelPoint
-    angle_deg: float                  # measured in the image frame, CCW positive
+    # Measured in the IMAGE frame, where v grows downward - so a positive
+    # angle turns clockwise on screen, the opposite of the robot's Rz.
+    # coordinates.angle_sign converts the sense. (This said CCW, which
+    # was simply wrong, and it is the sort of wrong that costs a day.)
+    angle_deg: float
     box: Optional[BoundingBox] = None
     # How clearly the outline showed its N-fold symmetry. Separate from
     # `confidence`, which is the detector's. A circle is legitimately 0.
@@ -112,6 +116,20 @@ class InferenceResult:
     """Everything one pass of the vision pipeline produced, including its timing."""
 
     detections: Sequence[Detection]
+    elapsed_ms: float
+    frame_sequence: int
+
+
+@dataclass(frozen=True)
+class MappedScene:
+    """One analysed frame with every object already in work object coordinates.
+
+    Produced by the coordinate-translation thread, consumed by the cycle.
+    Carrying the timing along means the cycle can still report how long the
+    model took for the very frame it is acting on.
+    """
+
+    objects: Sequence[DetectedObject]
     elapsed_ms: float
     frame_sequence: int
 

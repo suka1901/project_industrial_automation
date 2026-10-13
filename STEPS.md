@@ -132,28 +132,48 @@ orientation estimator and colour classifier are the real ones.
 
 # 2. Camera and marker calibration
 
-Allow about two hours the first time. Steps 2.1–2.5 need no robot.
+Allow about two hours the first time. Steps 2.1–2.6 need no robot.
 
-## 2.1 Mount the marker
+## 2.1 Print and lay the sheet
 
-1. Fix the **100 mm rubber marker** flat, well inside the frame and **clear of
-   where objects land**.
-2. **Shim it so its face is level with the top of the objects.** They are all
-   the same thickness, so one shim does it.
-3. Press every edge down. No lifted corners, no curl.
-4. Put objects on the sheet and confirm none can cover it.
+The marker is **printed at the exact centre of the A3 sheet**, so its position
+is arithmetic rather than a measurement: half of 297 and half of 420. That is
+why `marker_centre_xy_mm` is `[148.5, 210.0]` with nothing jogged, nothing
+ruled, and nothing that quietly drifts when somebody nudges the table.
 
-**Why the shim.** The homography maps onto the plane the marker lies in, and the
-camera sees the objects' *top* faces. Calibrate on the board and every object is
-reported outward by about `r·h/H` — roughly 2 mm for 10 mm objects 150 mm off
-centre under a camera 800 mm up. Worst at the corners, and it looks like lens
-distortion except that it points outward.
+1. Regenerate the sheet if you need a fresh one:
+
+   ```bash
+   cd pi
+   python tools/make_marker_sheet.py -o ../docs/marker_sheet_a3.pdf
+   ```
+
+2. Print **page 1** on A3 at **100% / "Actual size"**. Not "Fit to page" - that
+   shrinks by about 4% and puts every coordinate out by 4%.
+3. **Measure the bar along the bottom. It must read 100.0 mm.** If it does not,
+   the print was scaled and nothing after this point is worth doing.
+4. Lay the sheet down with the corner that is `wobj1`'s origin where it belongs
+   and the edges square to the axes. Tape all four edges. No curl, no lifted
+   corner.
+5. Keep objects off the marker and out of the outer 20 mm.
+
+**What else is on the page.** The four corner crosses sit exactly 10.0 mm in
+from each edge, which makes them known `wobj1` points - `(10, 10)`, `(287, 10)`,
+`(10, 410)`, `(287, 410)` - and 3.1 uses them to check the work object without
+measuring anything. All of that ink lives in the outer 20 mm, outside
+`sheet.margin_mm`, so the detector never sees it.
+
+**Do not shim the printed marker.** It lies flat, one object-thickness below the
+faces the camera actually sees, and that parallax is real - about 1.9 mm median
+and 5 mm at the sheet corners. It is corrected in software instead, from the
+camera height and lens position; see 2.6.
 
 | Problem | Fix |
 |---|---|
-| Marker near the frame edge | Move it inward — distortion is worst at the edges |
-| A corner lifts | Tape or re-seat it, or the calibration jitters |
-| Objects land on it | Re-site it, or mark a keep-clear zone |
+| Bar does not measure 100.0 mm | Reprint at 100%. Do not scale the config to compensate |
+| A corner lifts | Tape or re-lay it, or the calibration jitters |
+| Sheet not square to the work object axes | Re-lay it. A rotated sheet is a rotated marker, and `marker_centre_xy_mm` stops being the centre |
+| Objects land on the marker | Mark a keep-clear zone; the middle of the sheet is not usable |
 
 ## 2.2 Aim and focus
 
@@ -203,86 +223,134 @@ Watch the jitter for a **full minute**.
 
 ---
 
-# 3. Robot measurements
+## 2.6 Camera height and lens position
 
-## 3.1 (A6) Locate the marker in `wobj1`
+> **Not built yet** — `calibration/camera_height.py` is the next thing to write.
+> The procedure below is settled; the script is not.
 
-Keep the work object you have; just tell the vision system where the marker sits
-inside it. Do not try to touch the centre directly — touch the four corners and
-average them. The averaging cancels the sighting error, and the same four
-readings check the marker size and squareness for free.
+The printed marker lies flat on the paper, one object-thickness below the top
+faces the camera sees. Uncorrected that is 1.9 mm median and 5 mm at the sheet
+corners — the largest error left in the system. Correcting it needs two numbers
+about the camera, and both come from the marker itself. No tape measure.
 
-### Set the pendant up so the readout IS the config value
-
-Manual mode, then **ABB menu → Jogging**, and set all three:
-
-| Setting | Value |
-|---|---|
-| Coordinate System | `WorkObject` |
-| Work Object | `wobj1` |
-| Tool | `vac` |
-| Motion mode | Linear |
-
-The Position display now reads the cup's TCP in `wobj1` millimetres, so the
-numbers go straight into config with no arithmetic.
-
-> Confirm `Tool` says `vac` and not `tool0`. With `tool0` you are reading the
-> flange, which is about 90 mm out in X and 178 mm in Z. Every reading still
-> looks plausible and every one of them is wrong.
-
-### Touch the four corners
-
-Touch the **outer corners of the black square** — that is what the detector
-reports, and it must be the same square `marker_length_mm` describes. Measure
-that black edge with a ruler first and confirm it really is the 100 mm, not the
-rubber tile it is printed on.
-
-For each corner: jog above it, come down to **1–2 mm above the surface**, then
-sight **straight down the cup axis** with your eye over it, not off to one side.
-Use small increments for the last millimetre. Record X and Y.
-
-| Corner | X | Y |
-|---|---|---|
-| 1 | | |
-| 2 | | |
-| 3 | | |
-| 4 | | |
-
-`marker_centre_xy_mm` is the average of the four X values and the average of the
-four Y values.
-
-Do not press the cup onto the surface. The rubber deforms, the arm settles, and
-the reading moves — hovering is both safer and more accurate.
-
-### Check before you trust it
-
-| Check | Expect | If not |
-|---|---|---|
-| Each side, corner to corner | ≈ `marker_length_mm` | Consistently larger means you are sighting the outside of the border; consistently different means `marker_length_mm` is wrong |
-| Each diagonal | ≈ 1.414 × the side | One diagonal off means a corner reading is bad — retake it |
-| Two edges at constant Y, two at constant X | marker is square to `wobj1` | Straighten the marker and re-read rather than measuring `marker_angle_deg`; a zero there is one less thing to get wrong |
-
-### Then let the camera correct you
-
-This is what actually gets you under a millimetre, and it means the touching
-only has to be roughly right. Run 3.2, and where the error is the **same at
-every spot**:
+**The idea.** Pixels-per-mm *is* a magnification measurement. Something 10 mm
+closer to the lens is magnified by `H / (H − h)`. So read the marker's apparent
+size at two known heights and the ratio hands you the height:
 
 ```
-new marker_centre = old marker_centre + (jogged − reported)
+m      = apparent side / 100          # the px/mm ratio, at height s
+height = s · m / (m − 1)
+lens   = (P₁ − m·T) / (1 − m)         # T = 148.5, 210.0 — known exactly
 ```
 
-component-wise, because the mapping is a pure translation. One iteration
-converges. If the error instead grows toward the corners, that is marker height,
-not centre — see 3.2's table.
+`T` being known *exactly* is the whole reason this works, and it is known only
+because the marker is printed at the sheet centre rather than placed and
+measured.
+
+**The procedure.**
+
+1. Cut out the marker on **page 2** of the PDF and glue it to a block of known
+   thickness. **Use 40 mm or more** — see the warning below.
+2. With the block off, capture the flat marker for a few seconds.
+3. Set the block down on the printed marker so the black squares coincide, and
+   capture again.
+4. The script averages ~30 frames of each, solves for the two numbers, and
+   offers to write them into `config.yaml`.
+5. Take the block away. It is never needed again unless the camera moves.
+
+**The block must be thick.** The solution divides by `m − 1`, which is tiny, so
+any error in *where you set the block down* is multiplied by `(H − s)/s`:
+
+| Spacer | Set down 0.5 mm out | Set down 1 mm out | Set down 2 mm out |
+|---|---|---|---|
+| 10 mm | 0.60 mm | 1.40 mm | 2.18 mm |
+| 40 mm | 0.24 mm | 0.28 mm | 0.67 mm |
+| 100 mm | 0.17 mm | 0.20 mm | 0.29 mm |
+
+A 10 mm spacer placed carelessly is **worse than not correcting at all**. A
+40 mm block is forgiving; 100 mm is effectively immune. The height estimate
+itself is robust at every thickness — it is only the lens position that is
+fragile, and thickness is the entire fix.
+
+**Expect:** with a 40 mm block, 0.16 mm median and 1.6 mm worst across the
+sheet, against 1.90 / 5.46 uncorrected.
 
 | Problem | Fix |
 |---|---|
-| Tempted to re-teach `wobj1` at the marker | Then it is `[0, 0]`, but moving `wobj1` also shifts `Papproach`, `PICK_SURFACE_Z_MM` and the sheet origin. Not worth it against a proven work object |
-| Readings drift between corners | The arm is not settling. Pause a moment after each jog before reading |
+| Estimated height is wildly wrong | The block thickness passed to the script does not match the block |
+| Estimated lens position is off the table | The raised marker was not centred on the printed one — redo step 3 |
+| Numbers change between runs | Not enough frames, or the camera is vibrating. Fix 2.2 first |
 
-Write down the raw corner readings, not just the averages. If 3.2 disagrees, the
-raw numbers tell you whether it was the touching or the marker.
+# 3. Robot measurements
+
+## 3.1 (A6) Teach `wobj1` with the pointer, then verify it
+
+Read this before teaching. The marker's position now comes from the printed
+sheet, not from the robot, so **the work object's own error no longer cancels**.
+It used to: `marker_centre_xy_mm` was measured by jogging, so a skewed `wobj1`
+corrupted the measurement and the pick command in the same direction and most of
+it fell out. That cancellation is gone by design, and what it leaves behind is
+this - the error the teaching alone adds to every pick:
+
+| Taught with | Median | 95th | Worst |
+|---|---|---|---|
+| Pointer, 0.3 mm touch | 0.38 mm | 0.98 mm | 2.3 mm |
+| Cup, 1 mm touch | 1.28 mm | 3.30 mm | 9.5 mm |
+| Cup, 2 mm touch | 2.53 mm | 6.44 mm | 16.4 mm |
+
+A cup-taught frame is a larger error than the parallax, the marker geometry and
+the detection noise put together. Use the pointer.
+
+### Teach it
+
+Manual mode, **ABB menu -> Jogging**, Tool set to the **pointer**, motion
+linear. Three points, every one touched **on the sheet surface** - they set the
+Z datum as well as the origin and axes:
+
+| Point | Where | Why there |
+|---|---|---|
+| X1 | The sheet corner that is the origin | This point *is* `(0, 0)` |
+| X2 | The far end of the **297 mm** edge | X1->X2 alone sets the angle, and angular error is the touch error divided by this distance |
+| Y1 | Along the 420 mm edge, as far as you can reach | Only its +Y side and the plane it defines matter, not its distance |
+
+> Sight straight down the pointer and **hover** - do not press. Pause after each
+> jog and let the arm settle before reading. Half the error in this step is
+> reading a number the arm has not finished arriving at.
+
+### Verify it against the printed crosses
+
+Four known points, nothing measured. Jog the **pointer** to each cross centre
+with Coordinate System `WorkObject`, Work Object `wobj1`, Tool `pointer`:
+
+| Cross | Should read |
+|---|---|
+| At the origin corner | `10, 10` |
+| Along +X from it | `287, 10` |
+| Along +Y from it | `10, 410` |
+| Diagonally opposite | `287, 410` |
+
+**Expect:** within **0.5 mm** at every cross.
+
+| What you see | What it means |
+|---|---|
+| The same offset at all four | The origin is off - re-touch X1. This one is a constant, so it is also the easy one |
+| Right at X1, wrong by more the further you go | The X axis is rotated - re-touch X2, further out |
+| X and Y readings swapped | You taught +X along the long edge. Re-teach, or swap `sheet.span_xy_mm` and `marker_centre_xy_mm` to match |
+| One cross wrong, the other three right | A bad reading, not a bad frame. Retake it |
+
+This checks `wobj1` against the sheet. It does **not** settle `marker_angle_deg`
+or `y_axis_flipped` - those are about how the detector's corner order maps into
+the frame, and they are still resolved empirically in 3.2 and 3.3.
+
+### Then swap the tool back to the cup
+
+| Check | Why it matters |
+|---|---|
+| Re-check `PICK_SURFACE_Z_MM` on a scrap object | The 3-point method just put Z=0 at the paper under a rigid tip. The old value was tuned against a squashed cup, so it is wrong by the difference between them |
+| Confirm the cup's own TCP | Teaching with the pointer fixes the *frame*, not the tool. Cup TCP error still lands on every pick - and because the wrist rotates during picking, a lateral cup error shows up as an error that **changes with the object's angle**, not as a constant offset you can trim away |
+
+Write down the four cross readings. If 3.2 later disagrees with the camera, they
+tell you whether the work object or the mapping is at fault.
 
 ## 3.2 (A7) Verify the mapping — the gate
 
@@ -293,10 +361,10 @@ Put one object down, read X and Y from the GUI, jog there and compare. Repeat at
 
 | What you see | What it means |
 |---|---|
-| Centre good, corners out | Lens distortion — move the marker more central |
+| Centre good, corners out | Lens distortion. The marker cannot move now, so live with it or undistort |
 | All off by the same amount | `marker_centre_xy_mm` is wrong — fix those two numbers |
 | All off by the same *percentage* | `marker_length_mm` is wrong |
-| Error grows outward | The marker is not at object-top height — go back to 2.1 |
+| Error grows outward from under the lens | The height correction is missing or its camera numbers are wrong — go back to 2.6 |
 | X and Y swapped or rotated | `marker_angle_deg` is wrong |
 | Y has the wrong sign | Go to 3.3 |
 

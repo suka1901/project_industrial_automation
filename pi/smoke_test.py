@@ -30,6 +30,7 @@ from infrastructure.runtime import (
     ConnectionWorker,
     InferenceWorker,
     LatestResultHolder,
+    MappingWorker,
     ThreadSupervisor,
 )
 
@@ -55,22 +56,28 @@ def main() -> int:
     shutdown = threading.Event()
     frames: queue.Queue = queue.Queue(maxsize=2)
     results: queue.Queue = queue.Queue(maxsize=2)
+    scenes: queue.Queue = queue.Queue(maxsize=2)
 
     supervisor = ThreadSupervisor(shutdown)
     supervisor.add(CaptureWorker(shutdown, container.build_frame_source(), frames))
     supervisor.add(InferenceWorker(shutdown, container.build_vision_pipeline(),
                                    frames, results, state))
+    supervisor.add(MappingWorker(shutdown, container.build_coordinate_service(),
+                                 results, scenes, state))
     supervisor.add(ConnectionWorker(shutdown, transport, state, MessageCodec().encode_quit()))
     supervisor.start_all()
 
     controller = CycleController(
-        get_inference=LatestResultHolder(results),
-        coordinates=container.build_coordinate_service(),
+        get_scene=LatestResultHolder(scenes),
         selector=container.build_selector(),
         commander=RobotCommander(transport, MessageCodec(), reply_timeout_s=1.0),
         state=state,
         max_attempts=config["robot"].get("max_attempts", 3),
         verify_tolerance_mm=container.verify_tolerance_mm,
+        robot_ready=lambda: transport.is_connected,
+        wait=shutdown.wait,
+        retry_delay_s=config["robot"].get("retry_delay_s", 1.5),
+        connect_wait_s=config["robot"].get("connect_wait_s", 30.0),
     )
 
     # Wait for the first inference rather than sleeping a fixed time: loading

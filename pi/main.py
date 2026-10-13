@@ -17,8 +17,6 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE_DIR))
 
-import yaml  # noqa: E402
-
 from adapters.comms.message_codec import MessageCodec  # noqa: E402
 from adapters.comms.robot_commander import RobotCommander  # noqa: E402
 from adapters.gui.tk_view import TkView  # noqa: E402
@@ -33,6 +31,7 @@ from infrastructure.runtime import (  # noqa: E402
     CycleWorker,
     InferenceWorker,
     LatestResultHolder,
+    MappingWorker,
     ThreadSupervisor,
 )
 
@@ -46,10 +45,17 @@ def main() -> int:
     args = parser.parse_args()
 
     config = load_config(BASE_DIR / args.config)
+    logging_config = config.get("logging", {})
+    # The console view IS the terminal, so INFO chatter lands on top of what
+    # the operator is typing. Warnings only there; the file still gets INFO.
+    console_level = logging_config.get("console_level")
+    if console_level is None and config.get("gui", {}).get("kind") == "console":
+        console_level = "WARNING"
     configure_logging(
-        level=config.get("logging", {}).get("level", "INFO"),
-        log_file=str(BASE_DIR / config["logging"]["file"])
-        if config.get("logging", {}).get("file") else None,
+        level=logging_config.get("level", "INFO"),
+        log_file=str(BASE_DIR / logging_config["file"])
+        if logging_config.get("file") else None,
+        console_level=console_level,
     )
 
     log.info("Starting INA700 with profile '%s', shapes %s",
@@ -74,26 +80,33 @@ def main() -> int:
     # --- queues connecting the threads -------------------------------------
     shutdown = threading.Event()
     frames: queue.Queue = queue.Queue(maxsize=2)
-    results: queue.Queue = queue.Queue(maxsize=2)
+    results: queue.Queue = queue.Queue(maxsize=2)     # pixels, from inference
+    scenes: queue.Queue = queue.Queue(maxsize=2)      # millimetres, from mapping
     requests: queue.Queue = queue.Queue(maxsize=8)
 
-    latest_result = LatestResultHolder(results)
-
+    robot_config = config["robot"]
     controller = CycleController(
-        get_inference=latest_result,
-        coordinates=coordinates,
+        get_scene=LatestResultHolder(scenes),
         selector=selector,
         commander=commander,
         state=state,
-        max_attempts=config["robot"].get("max_attempts", 3),
+        max_attempts=robot_config.get("max_attempts", 3),
         verify_tolerance_mm=container.verify_tolerance_mm,
+        robot_ready=lambda: transport.is_connected,
+        wait=shutdown.wait,          # returns True as soon as shutdown is set
+        retry_delay_s=robot_config.get("retry_delay_s", 1.5),
+        connect_wait_s=robot_config.get("connect_wait_s", 30.0),
     )
 
     # --- start the worker threads ------------------------------------------
     supervisor = ThreadSupervisor(shutdown)
     supervisor.add(CaptureWorker(shutdown, frame_source, frames,
-                                 max_fps=config["camera"].get("capture_fps", 10.0)))
+                                 max_fps=config["camera"].get("capture_fps", 10.0),
+                                 tap_path=config["camera"].get("frame_tap"),
+                                 tap_interval_s=config["camera"].get(
+                                     "frame_tap_interval_s", 0.5)))
     supervisor.add(InferenceWorker(shutdown, pipeline, frames, results, state))
+    supervisor.add(MappingWorker(shutdown, coordinates, results, scenes, state))
     supervisor.add(ConnectionWorker(shutdown, transport, state, MessageCodec().encode_quit()))
     supervisor.add(CycleWorker(shutdown, controller, requests, state))
     supervisor.start_all()
@@ -119,11 +132,29 @@ def main() -> int:
         has_stopped=shutdown.is_set,
     )
 
+    # Command sources run beside the view, not instead of it. Tk owns the
+    # main thread, so the terminal prompt cannot be a view of its own - as a
+    # source it can, which is how the window and the terminal are both live.
+    gui_config = config.get("gui", {})
+    sources = []
+    if gui_config.get("terminal_input") and view_kind != "console":
+        from adapters.gui.command_sources import TerminalCommandReader
+        sources.append(TerminalCommandReader(container.shapes, requests.put,
+                                             on_close=shutdown.set))
+    if gui_config.get("command_pipe"):
+        from adapters.gui.command_sources import PipeCommandReader
+        sources.append(PipeCommandReader(gui_config["command_pipe"],
+                                         container.shapes, requests.put))
+    for source in sources:
+        source.start()
+
     try:
         view.run()
     except KeyboardInterrupt:
         log.info("Interrupted by the user")
     finally:
+        for source in sources:
+            source.stop()
         supervisor.stop_all()
         log.info("Shutdown complete")
 

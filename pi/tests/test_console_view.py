@@ -14,7 +14,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from domain.enums import Colour, Shape
-from adapters.gui.console_view import parse_request
+import threading
+import time
+
+from adapters.gui.console_view import ConsoleView, parse_request
 
 ALLOWED = [Shape.CIRCLE, Shape.SQUARE, Shape.STAR]
 
@@ -96,3 +99,80 @@ class TestRefusesClearly(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class _Snapshot:
+    """Just enough of StateSnapshot for the status watcher."""
+
+    status_text = "idle"
+
+
+class TestTheRefreshSettingIsActuallyWired(unittest.TestCase):
+    """gui.refresh_ms used to be accepted here and then ignored.
+
+    The watcher slept a hard-coded 0.2 s, so on the Pi - which runs the console
+    view - turning that config knob did nothing at all. These tests fail if it
+    ever goes back to being decorative.
+    """
+
+    def _watch_for(self, refresh_ms, seconds):
+        """Run the status watcher briefly and count how often it polled."""
+        calls = []
+
+        def provider():
+            calls.append(time.monotonic())
+            return _Snapshot()
+
+        view = ConsoleView(
+            allowed_shapes=ALLOWED,
+            on_cycle_requested=lambda request: None,
+            on_close=lambda: None,
+            snapshot_provider=provider,
+            refresh_ms=refresh_ms,
+        )
+        thread = threading.Thread(target=view._watch_status, daemon=True)
+        thread.start()
+        time.sleep(seconds)
+        view._stop.set()
+        thread.join(timeout=1.0)
+        self.assertFalse(thread.is_alive(), "watcher did not stop")
+        return len(calls)
+
+    def test_a_short_interval_polls_more_often_than_a_long_one(self):
+        fast = self._watch_for(20, 0.4)
+        slow = self._watch_for(200, 0.4)
+        # Deliberately loose: this asserts the setting is read at all, not that
+        # the scheduler is precise.
+        self.assertGreater(fast, slow)
+        self.assertGreaterEqual(fast, 5)
+        self.assertLessEqual(slow, 4)
+
+    def test_stopping_does_not_wait_out_the_interval(self):
+        """Waiting on the event, not sleeping, is what makes shutdown prompt."""
+        view = ConsoleView(
+            allowed_shapes=ALLOWED,
+            on_cycle_requested=lambda request: None,
+            on_close=lambda: None,
+            snapshot_provider=_Snapshot,
+            refresh_ms=5000,
+        )
+        thread = threading.Thread(target=view._watch_status, daemon=True)
+        thread.start()
+        time.sleep(0.05)
+        started = time.monotonic()
+        view._stop.set()
+        thread.join(timeout=2.0)
+        self.assertFalse(thread.is_alive(), "watcher slept through the stop")
+        # Well under the old hard-coded 0.2 s sleep, so this fails if the
+        # watcher ever goes back to sleeping instead of waiting on the event.
+        self.assertLess(time.monotonic() - started, 0.1)
+
+    def test_a_silly_interval_cannot_become_a_busy_loop(self):
+        view = ConsoleView(
+            allowed_shapes=ALLOWED,
+            on_cycle_requested=lambda request: None,
+            on_close=lambda: None,
+            snapshot_provider=_Snapshot,
+            refresh_ms=0,
+        )
+        self.assertGreaterEqual(view._poll_s, 0.02)

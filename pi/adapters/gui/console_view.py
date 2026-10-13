@@ -97,6 +97,9 @@ class ConsoleView(View):
         self._on_cycle_requested = on_cycle_requested
         self._on_close = on_close
         self._snapshot_provider = snapshot_provider
+        # Seconds, because that is what time.sleep takes. Floored so a config
+        # of 0 cannot turn the watcher into a busy loop on the Pi.
+        self._poll_s = max(0.02, refresh_ms / 1000.0)
         self._budget_ms = budget_ms
         self._place_gate = place_confidence_gate
         self._has_stopped = has_stopped or (lambda: False)
@@ -206,6 +209,9 @@ class ConsoleView(View):
 
         A background thread rather than the main one, because the main thread
         is blocked in input() waiting for the operator.
+
+        Waits on the stop event rather than sleeping, so shutdown is immediate
+        instead of up to one poll period late.
         """
         while not self._stop.is_set():
             try:
@@ -217,4 +223,4 @@ class ConsoleView(View):
                     return
             except Exception as exc:            # never kill the UI thread
                 log.debug("status poll failed: %s", exc)
-            time.sleep(0.2)
+            self._stop.wait(self._poll_s)

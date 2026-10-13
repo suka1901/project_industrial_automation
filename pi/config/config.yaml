@@ -94,38 +94,48 @@ colour:
 # refuses an off-board position too, but a refusal wastes the whole cycle.
 sheet:
   origin_xy_mm: [0.0, 0.0]
-  span_xy_mm: [420.0, 297.0]
+  # +X runs along the SHORT (297 mm) edge, +Y along the long one, because
+  # that is how wobj1 was taught: X1 at the sheet corner, X2 jogged along
+  # the short edge.
+  span_xy_mm: [297.0, 420.0]
   # Generous: it only has to stay well clear of the jig, and an object half
   # off the paper is still on the table and still worth picking.
   margin_mm: 20.0
 
 # --- ArUco reference marker (README requirement) ----------------------------
-# A 5x5 marker is fixed on the table. Its four corners give the pixel-to-
-# millimetre mapping every frame, so a nudged camera corrects itself.
+# A 5x5 marker is PRINTED at the exact centre of the A3 sheet. Its four corners
+# give the pixel-to-millimetre mapping every frame, so a nudged camera corrects
+# itself.
 #
-# The supplied rubber marker is 100 mm, so only its POSITION needs measuring:
-#   1. Jog the robot tool tip to the marker's centre, read wobj1 X and Y.
-#   2. Note how the marker is turned relative to the wobj1 X axis.
-# The marker need not sit at the work object origin - any offset works.
-# Mount it level with the TOP of the objects: the homography maps to the plane
-# the marker lies in, and the camera sees the objects' top faces.
+# Printing it is what removes the measurement. wobj1's origin is the sheet
+# corner and its axes run along the sheet edges, so the marker centre is half
+# the sheet in each direction BY CONSTRUCTION - 148.5, 210.0 - and no robot
+# jogging, ruler or tape is involved. Regenerate the sheet with
+#   python tools/make_marker_sheet.py -o ../docs/marker_sheet_a3.pdf
+# and print it at 100% scale; the bar along the bottom must measure 100.0 mm.
+#
+# The marker lies FLAT on the sheet, one object-thickness below the object top
+# faces the camera actually sees. That parallax is corrected in the
+# object_height block below - see the note there.
 aruco:
   dictionary: DICT_5X5_100
   marker_id: 0                 # null = accept any marker in view
-  marker_length_mm: 100.0      # the supplied rubber marker
-  # Marker centre in wobj1, measured 2026-09-09. One corner was touched at
-  # (106.54, 89.26) and the other three derived from the marker's known 100 mm
-  # square, so this rests on ONE reading rather than the four-corner average.
-  # Step 3.2 is therefore required to refine it, not merely to confirm it:
-  # where the error is the same everywhere, it IS the correction, so add
-  # (jogged - reported) to these two numbers and re-check.
+  marker_length_mm: 100.0      # the printed OUTER BLACK SQUARE, not the paper
+  # Half of 297 and half of 420: the centre of the sheet, which is where the
+  # marker is printed. Nothing here was measured, so nothing here can drift.
+  marker_centre_xy_mm: [148.5, 210.0]
   #
-  # The marker sits ON the sheet by choice, spanning X 106.5-206.5 and
-  # Y 89.3-189.3, so the usable picking area is the A3 minus that block.
-  # It was never labelled in any of the 57 training photos that contain it,
-  # so the detector treats it as background and will not call it a square.
-  marker_centre_xy_mm: [156.54, 139.26]
-  marker_angle_deg: 0.0
+  # The printed marker's edges are parallel to the sheet edges, so these two
+  # are exact - but WHICH exact value depends on which physical corner was
+  # taught as wobj1's origin. There are only eight possibilities (four
+  # quarter-turns, mirrored or not), so measure rather than reason:
+  #   1. Lay one object near a sheet corner you can identify.
+  #   2. Read the reported X,Y off the GUI and compare with a ruler from the
+  #      sheet edges.
+  #   3. Both wrong in a way that swaps X and Y -> angle 90 or 270.
+  #      Only Y wrong, mirrored about the sheet centre -> y_axis_flipped true.
+  # Repeat with the object at a second corner before believing the answer.
+  marker_angle_deg: 0.0        # 0 / 90 / 180 / 270 - confirm with the test above
   y_axis_flipped: false        # flip if a test pick comes out mirrored in Y
   redetect_every_n_frames: 1   # 1 = re-solve every frame; raise if time is tight
   hold_last_good: true         # keep working if a hand briefly covers the marker
@@ -221,7 +231,15 @@ gui:
   #           which is what makes an SSH session on the Pi work; Tk fails
   #           there with "no display name and no $DISPLAY".
   kind: tk
-  refresh_ms: 100
+  # Half the capture period, deliberately. Tk reschedules with after() AFTER
+  # render() returns, so the real period is refresh_ms + render time - at 100
+  # against a 10 fps camera the GUI is structurally slower than the frames and
+  # silently drops about one in six, which reads as judder rather than lag.
+  # Polling twice per frame fixes that; it cannot make frames fresher, because
+  # the newest frame is already ~50 ms old on average. For that, raise
+  # capture_fps instead. The extra polls are nearly free: an unchanged table
+  # and unchanged text do no drawing work.
+  refresh_ms: 50
 
 logging:
   level: INFO

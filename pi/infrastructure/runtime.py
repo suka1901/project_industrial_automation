@@ -7,17 +7,33 @@ Course: INA700 - AI-based pick and place
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import threading
 import time
 from typing import List, Optional
 
-from domain.models import Frame, InferenceResult
+from domain.models import Frame, InferenceResult, MappedScene
+from application.coordinate_service import CoordinateService
 from application.shared_state import SharedState
 from application.vision_pipeline import VisionPipeline
 from ports.interfaces import FrameSource
 
 log = logging.getLogger(__name__)
+
+
+def put_newest(target: queue.Queue, item) -> None:
+    """Put an item on a bounded queue, dropping the oldest one if it is full.
+
+    Every stage wants the newest data, never a backlog: a queue that blocked
+    here would make a slow consumer stall the stage feeding it.
+    """
+    if target.full():
+        try:
+            target.get_nowait()
+        except queue.Empty:
+            pass
+    target.put(item)
 
 
 class Worker(threading.Thread):
@@ -55,10 +71,17 @@ class CaptureWorker(Worker):
     """Thread 1 - keeps the newest camera frame available, nothing else."""
 
     def __init__(self, shutdown: threading.Event, source: FrameSource,
-                 output: "queue.Queue[Frame]", max_fps: float = 10.0) -> None:
+                 output: "queue.Queue[Frame]", max_fps: float = 10.0,
+                 tap_path: Optional[str] = None,
+                 tap_interval_s: float = 0.5) -> None:
         super().__init__("capture", shutdown)
         self._source = source
         self._output = output
+        # The camera can only be opened once, so a calibration tool that needs
+        # frames while this is running reads them from here instead.
+        self._tap_path = tap_path
+        self._tap_interval_s = tap_interval_s
+        self._next_tap = 0.0
         # Without this the loop grabs as fast as the camera allows. The Basler
         # runs at 71.8 fps and inference does about 2.4, so 97% of those frames
         # are dropped unread - at 15 MB each that is roughly a gigabyte per
@@ -84,12 +107,36 @@ class CaptureWorker(Worker):
             self._shutdown.wait(0.02)  # brief pause instead of a busy spin
             return
         # Bounded queue: drop the stale frame rather than grow memory.
-        if self._output.full():
-            try:
-                self._output.get_nowait()
-            except queue.Empty:
-                pass
-        self._output.put(frame)
+        put_newest(self._output, frame)
+        self._write_tap(frame)
+
+    def _write_tap(self, frame: Frame) -> None:
+        """Drop the newest frame where another process can read it.
+
+        Written to a temporary name and renamed into place, so a reader never
+        opens a half-written image. JPEG rather than PNG: encoding 5 megapixels
+        costs about 70 ms on the Pi against 400 ms for PNG, and the artefacts
+        are far below what a contour cares about.
+        """
+        if not self._tap_path:
+            return
+        now = time.monotonic()
+        if now < self._next_tap:
+            return
+        self._next_tap = now + self._tap_interval_s
+        try:
+            import cv2
+            # The ".part" goes BEFORE the extension: imwrite picks the format
+            # from the suffix, so a file ending .part is not an image it knows
+            # how to write, and it fails silently returning False.
+            root, _, extension = self._tap_path.rpartition(".")
+            temporary = (f"{root}.part.{extension}" if root
+                         else f"{self._tap_path}.part.jpg")
+            if cv2.imwrite(temporary, frame.image,
+                           [int(cv2.IMWRITE_JPEG_QUALITY), 92]):
+                os.replace(temporary, self._tap_path)
+        except Exception as exc:          # a tap must never stop the capture
+            log.debug("Frame tap failed: %s", exc)
 
     def on_stop(self) -> None:
         self._source.close()
@@ -121,25 +168,59 @@ class InferenceWorker(Worker):
         self._state.set_inference_time(result.elapsed_ms)
         # The GUI shows what the camera sees, whether or not a cycle is running.
         self._state.set_preview(frame.image, result.detections, frame.sequence)
+        put_newest(self._results, result)
 
-        if self._results.full():
-            try:
-                self._results.get_nowait()
-            except queue.Empty:
-                pass
-        self._results.put(result)
+
+class MappingWorker(Worker):
+    """Thread 3 - translates pixel detections into work object coordinates.
+
+    Its own thread, as the assignment lists coordinate translation as a
+    function in its own right. It also keeps the displayed positions live:
+    the view shows where every object is right now, not only where the last
+    cycle's target was.
+    """
+
+    def __init__(self, shutdown: threading.Event, coordinates: CoordinateService,
+                 results: "queue.Queue[InferenceResult]",
+                 scenes: "queue.Queue[MappedScene]",
+                 state: SharedState) -> None:
+        super().__init__("mapping", shutdown)
+        self._coordinates = coordinates
+        self._results = results
+        self._scenes = scenes
+        self._state = state
+
+    def step(self) -> None:
+        try:
+            result = self._results.get(timeout=0.2)
+        except queue.Empty:
+            return
+
+        # The homography is re-solved on the inference thread from each frame;
+        # the mapper guards it with a lock, so reading it here is safe.
+        scene = MappedScene(
+            objects=tuple(self._coordinates.to_objects(result.detections)),
+            elapsed_ms=result.elapsed_ms,
+            frame_sequence=result.frame_sequence,
+        )
+        self._state.set_detections(scene.objects)
+        put_newest(self._scenes, scene)
 
 
 class LatestResultHolder:
-    """Keeps the most recent inference result for the cycle controller to pull."""
+    """Keeps the most recent item from a queue for the cycle controller to pull.
 
-    def __init__(self, results: "queue.Queue[InferenceResult]") -> None:
+    Used for mapped scenes; it works for any queue whose newest item is the
+    only one that matters.
+    """
+
+    def __init__(self, results: queue.Queue) -> None:
         self._results = results
-        self._latest: Optional[InferenceResult] = None
+        self._latest = None
         self._lock = threading.Lock()
 
-    def __call__(self) -> Optional[InferenceResult]:
-        """Return the freshest available result, waiting briefly if needed."""
+    def __call__(self):
+        """Return the freshest available item, waiting briefly if needed."""
         try:
             item = self._results.get(timeout=1.0)
         except queue.Empty:
@@ -181,7 +262,7 @@ class ThreadSupervisor:
 
 
 class CycleWorker(Worker):
-    """Thread 3 - owns the robot conversation and runs one cycle per request."""
+    """Thread 4 - owns the robot conversation and runs one cycle per request."""
 
     def __init__(self, shutdown: threading.Event, controller,
                  requests: "queue.Queue", state: SharedState) -> None:
@@ -207,7 +288,7 @@ class CycleWorker(Worker):
 
 
 class ConnectionWorker(Worker):
-    """Thread 4 - brings the robot connection up and keeps the status current."""
+    """Thread 5 - brings the robot connection up and keeps the status current."""
 
     def __init__(self, shutdown: threading.Event, transport, state: SharedState,
                  quit_message: str = "quit#") -> None:
