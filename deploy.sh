@@ -67,7 +67,7 @@ echo "config.yaml matches - the Pi has this calibration."
 echo
 echo "Pre-flight on the Pi..."
 set +e
-ssh "$TARGET" "cd $DESTINATION/pi && ./run.sh preflight $CAMERA"
+ssh "$TARGET" "source ~/venv/bin/activate && cd $DESTINATION/pi && ./run.sh preflight $CAMERA"
 PREFLIGHT=$?
 set -e
 

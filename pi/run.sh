@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Everything the Pi does, with the right profile already chosen.
 #
-#   ./run.sh              the window: live view, dropdowns, Start cycle
+#   ./run.sh              the window: live view, dropdowns, Send pick to robot
 #   ./run.sh console      the terminal view, for SSH - no display needed
 #   ./run.sh preflight    is this Pi ready
 #   ./run.sh bench        how fast the model runs HERE
@@ -21,6 +21,18 @@
 # Course: INA700 - AI-based pick and place
 set -euo pipefail
 cd "$(dirname "$0")"
+
+# The Pi's packages live in a virtual environment. This does NOT activate it -
+# an environment that turns itself on is one you stop thinking about, and the
+# day it is the wrong one you have no idea why. It just refuses, with the line
+# to paste, instead of letting python3 fail later as ModuleNotFoundError: cv2.
+if [ -z "${VIRTUAL_ENV:-}" ] && [ -f "$HOME/venv/bin/activate" ]; then
+    echo "The virtual environment is not active. Run this first:" >&2
+    echo "" >&2
+    echo "    source ~/venv/bin/activate" >&2
+    echo "" >&2
+    exit 1
+fi
 
 CONSOLE=config/profiles/pi.yaml      # ncnn, no display needed
 WINDOW=config/profiles/pi-gui.yaml   # the same, plus the window and the frame tap

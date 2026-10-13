@@ -83,7 +83,7 @@ Write-Host "config.yaml matches - the Pi has this calibration." -ForegroundColor
 $cameraFlag = if ($WithCamera) { "" } else { "--no-camera --length 0" }
 Write-Host ""
 Write-Host "Pre-flight on the Pi..." -ForegroundColor Cyan
-& ssh $target "cd $Destination/pi && ./run.sh preflight $cameraFlag"
+& ssh $target "source ~/venv/bin/activate && cd $Destination/pi && ./run.sh preflight $cameraFlag"
 $preflight = $LASTEXITCODE
 
 Write-Host ""
