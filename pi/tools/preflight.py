@@ -17,12 +17,15 @@ sys.path.insert(0, str(BASE_DIR))
 
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
 MARKER_FRAMES = 15          # frames used for the stability estimate
-STABLE_PX_PER_MM = 0.02     # gate from STEPS.md 2.5
+STABLE_PX_PER_MM = 0.02     # gate from LAB.md step 2
 SHEET_BRIGHT_MIN = 150      # 95th percentile grey the A3 sheet should reach
 SHEET_BRIGHT_MAX = 245      # above this the paper is clipping
 SATURATED_MAX_PCT = 0.1     # share of pixels allowed at 255
 
 results: List[Tuple[str, str, str]] = []
+# Set from --config before any check runs. A module-level default keeps
+# every check() free of a parameter only two of them would use.
+CONFIG_PATH = "config/config.yaml"
 
 
 def record(name: str, status: str, detail: str = "") -> None:
@@ -165,7 +168,7 @@ def report_camera_settings(camera: Any) -> None:
 def check_config() -> None:
     try:
         from infrastructure.config_loader import load_config
-        config = load_config(BASE_DIR / "config" / "config.yaml")
+        config = load_config(BASE_DIR / CONFIG_PATH)
     except Exception as exc:
         record("config.yaml", FAIL, str(exc))
         return
@@ -256,7 +259,7 @@ def check_slot_angles() -> None:
 
     try:
         from infrastructure.config_loader import load_config
-        config = load_config(BASE_DIR / "config" / "config.yaml")
+        config = load_config(BASE_DIR / CONFIG_PATH)
     except Exception:
         return                                  # check_config already failed
 
@@ -285,6 +288,38 @@ def check_slot_angles() -> None:
 
     status, detail = judge_slot_angles(in_use, measured, quality)
     record("slot angles", status, detail)
+    check_estimator_match(config, saved)
+
+
+def check_estimator_match(config: dict, saved: dict) -> None:
+    """Were the slot angles measured by the estimator that is about to run?
+
+    rz = slot angle - object angle, and the two cancel every constant offset
+    the estimator has - but only while BOTH come from the same one. Measure
+    the slots with one estimator, run the cell with another, and every
+    placement is out by the difference between them, silently and by the same
+    amount, which looks exactly like a mis-taught jig.
+    """
+    running = str(config.get("orientation", {}).get("kind", "fitted")).lower()
+    measured_with = saved.get("measured_with")
+
+    if measured_with is None:
+        record("slot angle source", FAIL,
+               f"slot_angles.yaml does not say which estimator measured it, so "
+               f"it predates orientation.kind. Re-measure with "
+               f"calibration/slot_angles.py --config, which is now running "
+               f"'{running}'")
+        return
+
+    if str(measured_with).lower() != running:
+        record("slot angle source", FAIL,
+               f"slot angles were measured with '{measured_with}' but "
+               f"orientation.kind is '{running}'. Every placement would be out "
+               f"by the difference between the two. Re-measure, or set "
+               f"orientation.kind back to '{measured_with}'")
+        return
+
+    record("slot angle source", PASS, f"measured with '{running}', which is what runs")
 
 
 # --- marker ----------------------------------------------------------------
@@ -311,12 +346,61 @@ def check_lighting(camera: Optional[Any]) -> None:
     if saturated > SATURATED_MAX_PCT:
         record("lighting", FAIL, detail + " - lower exposure or diffuse the lamp")
     elif sheet < SHEET_BRIGHT_MIN:
-        record("lighting", FAIL, detail +
-               " - add light or raise exposure until the sheet reads 180-210")
+        # Say what to change it TO. Exposure is very nearly linear here, so the
+        # ratio to the middle of the target band is the factor, and the
+        # operator can stop guessing and re-running.
+        wanted = (SHEET_BRIGHT_MIN + SHEET_BRIGHT_MAX) / 2.0
+        factor = wanted / max(sheet, 1.0)
+        hint = f" - needs {factor:.1f}x more light"
+        exposure = current_exposure_us(camera)
+        if exposure:
+            hint += (f": try camera.exposure_us {exposure * factor:.0f} "
+                     f"(it is {exposure:.0f} now)")
+        else:
+            hint += " - raise camera.exposure_us or add a lamp"
+        record("lighting", FAIL, detail + hint)
     elif sheet > SHEET_BRIGHT_MAX:
         record("lighting", FAIL, detail + " - close to clipping, lower exposure")
     else:
         record("lighting", PASS, detail)
+
+
+def current_exposure_us(camera: Optional[Any]) -> Optional[float]:
+    """The camera's exposure in microseconds, or None if it will not say.
+
+    Every lookup is guarded, not just the read. getattr(obj, name, None) only
+    falls back to its default on AttributeError, and pypylon raises
+    LogicalErrorException for a node that does not exist - so the default never
+    applies and the exception escapes. A helper whose whole job is "tell me if
+    you happen to know" must never be able to stop the check that calls it.
+    """
+    if camera is None:
+        return None
+
+    def attribute(owner: Any, name: str) -> Any:
+        try:
+            return getattr(owner, name, None)
+        except Exception:
+            return None                  # pypylon: node not existing
+
+    owners = [camera]
+    for name in ("_device", "device", "_camera", "camera"):
+        owner = attribute(camera, name)
+        if owner is not None:
+            owners.append(owner)
+
+    for owner in owners:
+        for name in ("exposure_us", "ExposureTime", "ExposureTimeAbs"):
+            node = attribute(owner, name)
+            if node is None:
+                continue
+            try:
+                if hasattr(node, "GetValue"):
+                    return float(node.GetValue())
+                return float(node() if callable(node) else node)
+            except Exception:
+                continue
+    return None
 
 
 def check_marker(camera: Optional[Any], length_mm: float) -> None:
@@ -360,9 +444,8 @@ def check_marker(camera: Optional[Any], length_mm: float) -> None:
     frame = camera.read()
     if frame is not None and frame.image is not None and mean > 0:
         height, width = frame.image.shape[:2]
-        record("field of view", PASS,
-               f"{width / mean:.0f} x {height / mean:.0f} mm "
-               f"({1000.0 / mean:.0f} um per pixel)")
+        status, detail_fov = judge_field_of_view(width, height, mean, sheet_wanted())
+        record("field of view", status, detail_fov)
 
     if len(ratios) < MARKER_FRAMES:
         record("marker steady", FAIL, detail + " - dropped frames, detection is marginal")
@@ -374,15 +457,69 @@ def check_marker(camera: Optional[Any], length_mm: float) -> None:
                "lighting and glare before trusting any coordinate")
 
 
+def sheet_wanted() -> Optional[Tuple[float, float]]:
+    """How much table has to be in frame: the A3 sheet plus its margin.
+
+    The JIG does not have to be in frame. Nothing at run time reads it - the
+    placing positions are taught on the robot - and the slot angles are
+    rotations, so the jig can be slid into view and back out again to measure
+    them, as long as it is not TURNED on the way.
+    """
+    try:
+        from infrastructure.config_loader import load_config
+        config = load_config(BASE_DIR / CONFIG_PATH)
+    except Exception:
+        return None
+    sheet = config.get("sheet") or {}
+    span = sheet.get("span_xy_mm")
+    if not span or len(span) != 2:
+        return None
+    margin = float(sheet.get("margin_mm", 0.0))
+    return float(span[0]) + 2 * margin, float(span[1]) + 2 * margin
+
+
+def judge_field_of_view(width_px: int, height_px: int, px_per_mm: float,
+                        wanted: Optional[Tuple[float, float]]) -> Tuple[str, str]:
+    """Does the frame cover the picking sheet, whichever way round it lies?"""
+    covered_x = width_px / px_per_mm
+    covered_y = height_px / px_per_mm
+    size = (f"{covered_x:.0f} x {covered_y:.0f} mm "
+            f"({1000.0 / px_per_mm:.0f} um per pixel)")
+
+    if wanted is None:
+        return PASS, size
+
+    short_side, long_side = sorted(wanted)
+    fits = ((covered_x >= wanted[0] and covered_y >= wanted[1])
+            or (covered_x >= wanted[1] and covered_y >= wanted[0]))
+    if fits:
+        return PASS, f"{size} - covers the {short_side:.0f} x {long_side:.0f} mm sheet"
+
+    missing_x = max(0.0, short_side - min(covered_x, covered_y))
+    missing_y = max(0.0, long_side - max(covered_x, covered_y))
+    return FAIL, (f"{size} - too small for the {short_side:.0f} x {long_side:.0f} mm "
+                  f"sheet and its margin, short by {missing_x:.0f} x {missing_y:.0f} mm. "
+                  f"Objects outside the picture cannot be picked. The jig does "
+                  f"NOT need to be in frame; the sheet does")
+
+
 # --- entry point -----------------------------------------------------------
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Pre-flight check for the INA700 station")
     parser.add_argument("--length", type=float, default=100.0,
                         help="marker edge in mm; 0 skips the marker check")
+    parser.add_argument("--config", default="config/config.yaml",
+                        help="the profile that will actually run. On the Pi "
+                             "pass config/profiles/pi.yaml, or the detector "
+                             "check judges the base config's 'yolo' and fails "
+                             "against a system that never runs it")
     parser.add_argument("--no-camera", action="store_true",
                         help="skip everything that needs the camera")
     args = parser.parse_args()
+
+    global CONFIG_PATH
+    CONFIG_PATH = args.config
 
     print("INA700 pre-flight\n")
 

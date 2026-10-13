@@ -15,6 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from tools import preflight
 from tools.preflight import FAIL, PASS, SKIP, judge_slot_angles
 
 GOOD = {"SQUARE": {"seatings": 4, "play_deg": 0.61},
@@ -75,3 +76,30 @@ class TestJudgeSlotAngles(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheEstimatorMustMatch(unittest.TestCase):
+    """Slot and object angles only cancel while one estimator measures both."""
+
+    def setUp(self):
+        preflight.results.clear()
+
+    def _run(self, kind, measured_with):
+        saved = {} if measured_with is None else {"measured_with": measured_with}
+        preflight.check_estimator_match({"orientation": {"kind": kind}}, saved)
+        return preflight.results[-1]
+
+    def test_matching_passes(self):
+        name, status, _ = self._run("fitted", "fitted")
+        self.assertEqual(status, preflight.PASS)
+
+    def test_mismatch_fails_and_says_both_names(self):
+        name, status, detail = self._run("fitted", "harmonic")
+        self.assertEqual(status, preflight.FAIL)
+        self.assertIn("harmonic", detail)
+        self.assertIn("fitted", detail)
+
+    def test_a_file_from_before_the_setting_fails(self):
+        name, status, detail = self._run("fitted", None)
+        self.assertEqual(status, preflight.FAIL)
+        self.assertIn("Re-measure", detail)
