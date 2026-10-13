@@ -52,3 +52,6 @@ ina700-pi.tar.gz
 pack-and-go/*
 !pack-and-go/README.txt
 FinalProject_*.zip
+
+# The Pi address this PC last deployed to.
+.pi-address

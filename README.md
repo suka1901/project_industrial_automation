@@ -20,6 +20,8 @@ detected or acted on.
 INA700/
 ├─ README.md              this file: what it is and why it is built this way
 ├─ LAB.md                 what to do at the station, in order
+├─ deploy.ps1 / .sh       build, copy to the Pi, verify, pre-flight it
+├─ make_submission.py     builds FinalProject_SurajKarki.zip
 ├─ pi/                    the vision application (Python)
 ├─ robot/                 RAPID modules for the ABB controller
 ├─ model/                 trained weights, dataset, training notebook
@@ -454,38 +456,44 @@ model to stay quiet on them.
 
 | Phase | State |
 |---|---|
-| Architecture and code | Done — 63 modules, 78 tests green |
+| Architecture and code | Done — 295 tests green, the layering enforced by tests |
 | Robot programs | Done — proven on hardware for the minimal exercise |
-| Camera and marker calibration | Partly — the marker needs remounting |
-| Dataset and labelling | Done |
-| Training | Done |
+| Dataset, labelling, training | Done — 345 photos, 271 labelled, model exported for the Pi |
+| Camera and marker calibration | Done on the PC; re-check the marker after any remount |
 | Robot measurements | **Not started — the critical path** |
-| Pi deployment | Not started — the Pi is set up in the lab, not yet benchmarked |
+| Full cycle on the robot | **Never run with this code** |
 
-### Still placeholders
+### Measured at the station, not before
 
-| Value | File | Measured at |
+| Value | File | Step in LAB.md |
 |---|---|---|
-| `marker_centre_xy_mm`, `marker_angle_deg` | `pi/config/config.yaml` | A6 |
-| `place_slot_angles_deg` | `pi/config/config.yaml` | A10 |
-| `y_axis_flipped`, `angle_sign` | `pi/config/config.yaml` | A8, A9 |
-| `verify_tolerance_mm` → 10–15 | `pi/config/config.yaml` | before the lab run |
-| `SHEET_ORIGIN_X`, `SHEET_ORIGIN_Y` | `robot/StationData.mod` | A11 |
-| `PICK_SURFACE_Z_MM` | `robot/StationData.mod` | A11 |
+| `place_slot_angles_deg` | `pi/config/config.yaml` | 4 — and preflight FAILS until they are re-measured with the running estimator |
+| `y_axis_flipped`, `angle_sign` | `pi/config/config.yaml` | 3.2, 3.3 |
+| `verify_tolerance_mm` → 10–15 | `pi/config/config.yaml` | before the first real cycle |
+| `PICK_SURFACE_Z_MM` | `robot/StationData.mod` | 3.1, on a scrap object |
+| the Pi's address in `ServerCommuncatio.sys` | the controller | before anything connects |
 
-Also switch `detector.kind` to `yolo`, `robot.transport` to `tcp`, or use
-`profiles/pi.yaml` which already has both.
+### How a change reaches the Pi
+
+Everything is fixed on the PC — the camera plugs in here, every number is
+edited here — and `deploy.ps1` (or `deploy.sh`) builds, copies, unpacks and then
+checks that the Pi's `config.yaml` hashes the same as this one before running
+preflight there. Nothing is edited on the Pi, so there is never a second copy of
+the truth. Nothing taught on the robot travels in the bundle at all: it lives in
+the controller and reaches the submission through the Pack-and-Go.
 
 ### Known risks
 
-**The marker is a printed paper sheet, wrinkled, lying where objects land.** It
-should be the 100 mm rubber one, shimmed, clear of the A3. Every robot-side
-number inherits it, so remount before booking robot time.
+**The model was trained at a dimmer exposure than the camera now runs.** The
+sheet read 144–160 in the dataset and 180–210 now. Watch the first detections;
+if recall drops, a round of photos at the current exposure is the fix.
 
-**Lighting is uncontrolled.** Sheet brightness ranged 67–162 at fixed exposure.
-`preflight.py` reports it and gates on 180–210.
+**Square has the fewest photos** at 38, so its recall degrades first — and white
+squares on white paper are also where the orientation fit is weakest.
 
-**Square has the fewest photos** at 38, so its recall degrades first.
+**The sheet and the jig do not both fit in the frame.** They do not have to: the
+jig is only needed while measuring the slot angles, and it can be slid in and
+out as long as it is never turned.
 
 ---
 
