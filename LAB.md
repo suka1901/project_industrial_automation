@@ -224,7 +224,7 @@ finishes.
 cd ~/INA700/pi
 ./run.sh preflight     # is this Pi ready
 ./run.sh bench         # how fast the model runs here
-./run.sh               # the window: live view, dropdowns, Start cycle
+./run.sh               # the window: live view, dropdowns, Send pick to robot
 ```
 
 `./run.sh console` is the same system with a terminal instead of a window,
@@ -245,9 +245,14 @@ Three ways in, all live at once under `pi-gui.yaml`:
 
 | Route | How |
 |---|---|
-| the window | shape and colour dropdowns, **Start cycle** |
+| the window | shape and colour dropdowns, **Send pick to robot** |
 | the terminal that launched it | type `circle red`, enter |
 | any other terminal | `echo "circle red" > /tmp/ina700.cmd` |
+
+Either way it takes two presses: yours chooses the object and sends its
+position, and the **yellow button on the cell** starts the motion. The status
+bar says which of the two it is waiting for — `PRESS THE YELLOW BUTTON` while
+the robot holds the position, then `the robot is placing the square`.
 
 `status` lists what the camera sees right now, with X, Y, Rz and the fit per
 object. `quit` shuts down cleanly. With the window up, the launching terminal

@@ -146,3 +146,36 @@ class TestCycleController(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWhatTheOperatorIsTold(unittest.TestCase):
+    """The wait after sending is a wait on a PERSON - up to five minutes of it.
+
+    A status line that says "picking" through all of that is how an operator
+    comes to believe the system has hung and starts restarting things."""
+
+    def _run_one_cycle(self):
+        state = SharedState()
+        seen = []
+
+        def commander(target):
+            seen.append(state.snapshot().status_text)   # what it says mid-wait
+            return CycleOutcome.SUCCESS
+
+        CycleController(
+            get_scene=make_scene,
+            selector=AllowedShapeSelector([Shape.STAR]),
+            commander=commander,
+            state=state,
+            wait=FakeClock(),
+        ).run_cycle(PickRequest())
+        return seen[0], state.snapshot().status_text
+
+    def test_it_asks_for_the_yellow_button_while_the_robot_waits(self):
+        while_waiting, _ = self._run_one_cycle()
+        self.assertIn("YELLOW BUTTON", while_waiting)
+        self.assertIn("star", while_waiting)
+
+    def test_and_says_the_robot_is_moving_once_it_is(self):
+        _, afterwards = self._run_one_cycle()
+        self.assertIn("placing", afterwards)

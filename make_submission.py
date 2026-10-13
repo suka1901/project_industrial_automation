@@ -1,16 +1,4 @@
-"""Builds FinalProject_SurajKarki.zip - the one file that gets handed in.
-
-    python make_submission.py --pack-and-go path\\to\\Station.pgz
-
-The course is blunt about this: a submission that does not follow the pattern
-is not assessed and there is no resubmission. So the three things it asks for
-are checked rather than assumed - the complete program files, the trained AI
-model, and a Pack-and-Go of the station from the examination - and the build
-refuses rather than producing a zip that is quietly missing one of them.
-
-The dataset stays out. It is 2.1 GB of camera frames, it is not a program
-file, and the model is what the photos were for.
-
+"""
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
 """

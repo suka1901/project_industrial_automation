@@ -120,13 +120,23 @@ class CycleController:
             return None, "no object matched the request"
 
         target = candidates[0]
+        # Said BEFORE the command goes out, because the next thing that happens
+        # is a wait of up to five minutes on a person. The robot has the
+        # position and is sitting at the pendant waiting for the yellow button,
+        # and a status line claiming to be "picking" through all of that is how
+        # an operator comes to believe the system has hung.
         self._state.set_status(
-            f"cycle {self._cycle_index}: picking {target.shape.value} "
-            f"({target.colour.value}) at "
-            f"x={target.pose.x:.1f} y={target.pose.y:.1f} rz={target.pose.rz:.1f}"
+            f"cycle {self._cycle_index}: sent {target.shape.value.lower()} "
+            f"({target.colour.value.lower()}) at x={target.pose.x:.1f} "
+            f"y={target.pose.y:.1f} rz={target.pose.rz:.1f}  -  "
+            f"PRESS THE YELLOW BUTTON"
         )
 
         outcome = self._commander(target)
+        self._state.set_status(
+            f"cycle {self._cycle_index}: the robot is placing the "
+            f"{target.shape.value.lower()}"
+        )
         if outcome is not CycleOutcome.SUCCESS:
             return None, f"robot reported {outcome.value}"
         if not self._object_was_lifted(target):

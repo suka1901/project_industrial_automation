@@ -102,8 +102,12 @@ class TkView(View):
             values=[ANY] + [c.value for c in Colour if c is not Colour.UNKNOWN],
         ).grid(row=0, column=3, padx=(0, 12))
 
+        # "Send" rather than "Start": this button only chooses the object and
+        # hands the position to the robot. Nothing moves until the yellow
+        # button on the cell is pressed, and a button labelled Start promises
+        # otherwise.
         self._cycle_button = ttk.Button(
-            controls, text="Start cycle", command=self._handle_cycle_click
+            controls, text="Send pick to robot", command=self._handle_cycle_click
         )
         self._cycle_button.grid(row=0, column=4, padx=(0, 12))
 
