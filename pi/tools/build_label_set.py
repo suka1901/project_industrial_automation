@@ -20,7 +20,6 @@ import csv
 import logging
 import shutil
 import sys
-from functools import lru_cache
 from pathlib import Path
 from typing import List, Sequence, Set, Tuple
 
@@ -29,6 +28,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from infrastructure.config_loader import load_config  # noqa: E402
 from infrastructure.logging_setup import configure_logging  # noqa: E402
+from tools.image_stats import sheet_brightness  # noqa: E402
 from tools.capture_session import IMAGE_SUFFIX, MIXED  # noqa: E402
 
 log = logging.getLogger("build_label_set")
@@ -43,22 +43,6 @@ EXCLUDED_FILE = "excluded.txt"
 
 OUTPUT_WIDTH = 1280      # comfortably above the 640 the network trains at
 JPEG_QUALITY = 92        # visually lossless at this scale, about 40x smaller
-
-
-@lru_cache(maxsize=None)
-def sheet_brightness(path: Path) -> float:
-    """95th percentile grey - the A3 sheet. Used to spread the sample evenly.
-
-    Read at quarter size: a percentile does not need 5 megapixels, and these
-    files are large enough that full reads dominate the run time.
-    """
-    import cv2
-    import numpy as np
-
-    image = cv2.imread(str(path), cv2.IMREAD_REDUCED_GRAYSCALE_4)
-    if image is None:
-        return 0.0
-    return float(np.percentile(image, 95))
 
 
 def images_in(folder: Path) -> List[Path]:

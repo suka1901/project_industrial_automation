@@ -147,3 +147,100 @@ class TestHueNoiseCannotNameAnObject(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def frame_with_noise(object_bgr, speckles, paper_level: int = 200,
+                     seed: int = 0) -> Frame:
+    """An object carrying a scatter of strongly coloured, disagreeing pixels.
+
+    This is the shape of the original bug: a handful of saturated pixels on a
+    hueless object, each naming a different hue.
+    """
+    rng = np.random.default_rng(seed)
+    image = np.full((200, 200, 3), paper_level, dtype=np.uint8)
+    image[80:120, 80:120] = object_bgr
+    for _ in range(speckles):
+        row = int(rng.integers(82, 118))
+        col = int(rng.integers(82, 118))
+        image[row, col] = tuple(int(v) for v in rng.integers(0, 256, 3))
+    return Frame(image=image, sequence=0, captured_at=0.0)
+
+
+class TestDarkButRealColours(unittest.TestCase):
+    """A dark green circle is still green.
+
+    min_value used to be 50, which discarded almost every pixel of an object
+    lying in shadow. Six dark green circles and four blue stars in the
+    labelled photos reached no colour at all and came out UNKNOWN.
+    """
+
+    # Value 45: below the old gate of 50, above the new one of 35. Picked
+    # deliberately - my first attempt used value 70, which passed under the
+    # old setting too and so tested nothing at all.
+    def test_a_dark_green_object(self):
+        self.assertIs(
+            HsvColourClassifier().classify(frame_with((0, 45, 0), paper_level=150),
+                                           detection()),
+            Colour.GREEN)
+
+    def test_a_dark_blue_object(self):
+        self.assertIs(
+            HsvColourClassifier().classify(frame_with((45, 0, 0), paper_level=150),
+                                           detection()),
+            Colour.BLUE)
+
+    def test_a_genuinely_black_object_is_still_black(self):
+        self.assertIs(
+            HsvColourClassifier().classify(frame_with((18, 18, 18), paper_level=150),
+                                           detection()),
+            Colour.BLACK)
+
+
+class TestHueHasToAgreeWithItself(unittest.TestCase):
+    """Abundance is not enough - it was abundance that named a black square BLUE."""
+
+    def test_plenty_of_in_band_pixels_that_disagree_do_not_name_a_colour(self):
+        """The case the fraction test cannot catch on its own.
+
+        Hues spread over a third of the circle: nearly half of them land in
+        the green band, so the fraction sails past min_fraction, but they
+        agree with each other only weakly. This is the shape of the eight
+        dark objects in the labelled photos that a lower value gate alone
+        would have called green or blue.
+        """
+        import cv2
+
+        rng = np.random.default_rng(3)
+        hsv = np.full((200, 200, 3), (0, 0, 200), dtype=np.uint8)
+        patch = np.zeros((40, 40, 3), dtype=np.uint8)
+        patch[:, :, 0] = rng.integers(0, 121, (40, 40))   # hue over 0-120
+        patch[:, :, 1] = 200                              # saturated
+        patch[:, :, 2] = 120                              # and lit
+        hsv[80:120, 80:120] = patch
+        image = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        frame = Frame(image=image, sequence=0, captured_at=0.0)
+
+        with_gate = HsvColourClassifier()
+        without_gate = HsvColourClassifier(min_hue_agreement=0.0)
+        self.assertIs(without_gate.classify(frame, detection()), Colour.GREEN,
+                      "test is not exercising the gate")
+        self.assertIsNot(with_gate.classify(frame, detection()), Colour.GREEN)
+
+    def test_a_real_colour_still_passes_with_some_noise(self):
+        self.assertIs(
+            HsvColourClassifier().classify(
+                frame_with_noise((0, 200, 0), speckles=25), detection()),
+            Colour.GREEN)
+
+    def test_agreement_is_high_for_one_hue_and_low_for_many(self):
+        classifier = HsvColourClassifier()
+        hue = np.full((40, 40), 60, dtype=np.uint8)
+        valid = np.ones((40, 40), dtype=bool)
+        self.assertGreater(classifier._hue_agreement(hue, valid, np), 0.99)
+
+        # 1620 is nine whole turns of the 0-179 hue scale, so the spread is
+        # even. An odd number leaves a partial cycle, which is itself a bias:
+        # my first attempt used 1600 and scored 0.24 instead of ~0.
+        wide = np.ones((45, 36), dtype=bool)
+        spread = (np.arange(1620, dtype=np.int32) % 180).astype(np.uint8).reshape(45, 36)
+        self.assertLess(classifier._hue_agreement(spread, wide, np), 0.05)

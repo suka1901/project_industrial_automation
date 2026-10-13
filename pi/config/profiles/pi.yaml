@@ -33,3 +33,6 @@ detector:
 # Override with 'kind: tk' when running on the station monitor or through VNC.
 gui:
   kind: console
+  # Commands from any second terminal on the Pi:
+  #     echo "circle red" > /tmp/ina700.cmd
+  command_pipe: /tmp/ina700.cmd

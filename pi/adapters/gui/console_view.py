@@ -19,7 +19,6 @@ Course: INA700 - AI-based pick and place
 from __future__ import annotations
 
 import logging
-import sys
 import threading
 import time
 from typing import Callable, List, Optional, Sequence, Tuple

@@ -40,26 +40,4 @@ def untrusted_angle_warning(objects) -> str:
     if not doubtful:
         return ""
     shapes = ", ".join(sorted(doubtful))
-    return (f"WEAK ANGLE  -  {shapes}  will be placed UNROTATED. "
-            "Move it further onto the sheet, or swap for a coloured one, "
-            "then start the cycle.")
-
-
-def table_rows(objects, gate: float) -> tuple:
-    """One display row per object, as a tuple of tuples.
-
-    Pure and hashable on purpose: the view compares this against what is
-    already on screen and redraws only when it differs. Rebuilding a Treeview
-    ten times a second is not merely wasteful - a row deleted 100 ms after it
-    is clicked cannot be selected, scrolled, or read from.
-    """
-    return tuple(
-        (o.shape.value,
-         o.colour.value,
-         f"{o.detection.confidence:.2f}",
-         angle_confidence_text(o, gate),
-         f"{o.pose.x:.1f}",
-         f"{o.pose.y:.1f}",
-         f"{o.pose.rz:.1f}")
-        for o in objects
-    )
+    return (f"WEAK ANGLE  -  {shapes}  will be placed UNROTATED. ")

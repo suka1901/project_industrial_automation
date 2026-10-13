@@ -17,7 +17,6 @@ import random
 import shutil
 import sys
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
@@ -27,6 +26,7 @@ sys.path.insert(0, str(BASE_DIR))
 import yaml  # noqa: E402
 
 from infrastructure.config_loader import load_config  # noqa: E402
+from tools.image_stats import sheet_brightness  # noqa: E402
 from infrastructure.logging_setup import configure_logging  # noqa: E402
 log = logging.getLogger("split_dataset")
 
@@ -52,18 +52,6 @@ class Sample:
     @property
     def is_negative(self) -> bool:
         return not self.class_ids
-
-
-@lru_cache(maxsize=None)
-def sheet_brightness(path: Path) -> float:
-    """95th percentile grey, read at quarter size."""
-    import cv2
-    import numpy as np
-
-    image = cv2.imread(str(path), cv2.IMREAD_REDUCED_GRAYSCALE_4)
-    if image is None:
-        return 0.0
-    return float(np.percentile(image, 95))
 
 
 def parse_label(path: Path, class_count: int) -> Tuple[Tuple[int, ...], List[str]]:

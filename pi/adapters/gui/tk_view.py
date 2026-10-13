@@ -11,8 +11,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional, Sequence
 
-from adapters.gui.formatting import (angle_confidence_text, table_rows,
-                                     untrusted_angle_warning)
+from adapters.gui.formatting import untrusted_angle_warning
 from domain.enums import Colour, Shape
 from domain.models import PickRequest, StateSnapshot
 from ports.interfaces import View
@@ -33,7 +32,7 @@ class TkView(View):
         snapshot_provider: Callable[[], StateSnapshot],
         refresh_ms: int = 100,
         budget_ms: float = 3000.0,
-        place_confidence_gate: float = 0.10,
+        place_confidence_gate: float = 0.05,
         has_stopped: Optional[Callable[[], bool]] = None,
     ) -> None:
         self._allowed_shapes = list(allowed_shapes)
@@ -55,7 +54,6 @@ class TkView(View):
         self._shown_sequence = -1
         self._preview_width = -1
         # What is currently on screen, so an unchanged frame costs nothing.
-        self._shown_rows: tuple = ()
         self._timing_text = None
         self._status_text = None
         # Drives the flashing warning. A static banner is easy to look past
@@ -92,7 +90,7 @@ class TkView(View):
         self._root.geometry(f"{width}x{height - 60}+0+0")
 
     def _build_widgets(self) -> None:
-        """Lay out the control row, the detection table and the status bar."""
+        """Lay out the control row, the live view and the status bar."""
         controls = ttk.Frame(self._root, padding=10)
         controls.pack(fill="x")
 
@@ -120,30 +118,14 @@ class TkView(View):
         self._timing_label = ttk.Label(controls, text="inference: - ms")
         self._timing_label.grid(row=0, column=5)
 
-        # Live view on the left, numbers on the right.
+        # The live view fills the window: the overlay already carries the
+        # pose, and the status bar names the object being picked.
         body = ttk.Frame(self._root)
         body.pack(fill="both", expand=True, padx=10, pady=(0, 8))
 
         self._preview = ttk.Label(body, text="waiting for the first frame",
                                   anchor="center", relief="sunken", width=40)
-        self._preview.pack(side="left", fill="both", expand=True, padx=(0, 10))
-
-        # Detection table: this is the "display position and orientation" part.
-        columns = ("shape", "colour", "conf", "angle_conf", "x", "y", "rz")
-        self._tree = ttk.Treeview(body, columns=columns,
-                                  show="headings", height=10)
-        headings = {
-            "shape": "Shape", "colour": "Colour", "conf": "Conf.",
-            "angle_conf": "Angle |Z|",
-            "x": "X (mm)", "y": "Y (mm)", "rz": "Rz (deg)",
-        }
-        for column in columns:
-            self._tree.heading(column, text=headings[column])
-            # The angle column carries a value plus a warning word, so it
-            # needs room; a truncated warning is worse than none.
-            width = 150 if column == "angle_conf" else 86
-            self._tree.column(column, width=width, anchor="center")
-        self._tree.pack(side="right", fill="y")
+        self._preview.pack(fill="both", expand=True)
 
         # A banner rather than a line in the status bar: an object placed
         # unrotated is the one failure the operator must not read past.
@@ -228,7 +210,7 @@ class TkView(View):
                      f"{detection.colour.value.lower()} "
                      f"{detection.confidence:.2f}")
             cv2.putText(small, label,
-                        (top_left[0], max(14, top_left[1] - 6)),
+                        (top_left[0], max(22, top_left[1] - 6)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.BOX_COLOUR, 1)
 
         self._photo = ImageTk.PhotoImage(
@@ -254,11 +236,12 @@ class TkView(View):
         try:
             self._render_preview(snapshot.preview)
         except Exception as exc:
-            # A preview failure must never stop the numbers being shown.
+            # A preview failure must never stop the status line and the
+            # weak-angle banner being shown - those are what the operator
+            # needs when the picture is the thing that is broken.
             log.debug("Preview failed: %s", exc)
 
         self._show_warning(untrusted_angle_warning(snapshot.detections))
-        self._render_table(snapshot.detections)
 
     def _set_text(self, widget, cache_name: str, text: str) -> None:
         """Configure a label only when its text has actually changed."""
@@ -266,19 +249,6 @@ class TkView(View):
             widget.config(text=text)
             setattr(self, cache_name, text)
 
-    def _render_table(self, detections) -> None:
-        """Rebuild the table only when its contents differ.
-
-        Rebuilding unconditionally destroyed any row the operator had clicked
-        100 ms later, so the table could not be selected or scrolled at all.
-        """
-        rows = table_rows(detections, self._place_gate)
-        if rows == self._shown_rows:
-            return
-        self._shown_rows = rows
-        self._tree.delete(*self._tree.get_children())
-        for row in rows:
-            self._tree.insert("", "end", values=row)
 
 
 
@@ -308,7 +278,7 @@ class TkView(View):
             background, foreground = self.FLASH_COLOURS[self._flash_on]
             self._warning_label.config(bg=background, fg=foreground)
 
-    CENTRE_COLOUR = (255, 255, 255)   # BGR: white, visible on paper and table
+    CENTRE_COLOUR = (139, 0, 0)   # BGR: dark blue, visible on paper and table
     ANGLE_COLOUR = (60, 220, 60)      # BGR: green, distinct from the box
 
     def _draw_pose(self, canvas, detection, scale: float) -> None:
@@ -324,7 +294,7 @@ class TkView(View):
 
         centre = (int(detection.centre.u * scale), int(detection.centre.v * scale))
         cv2.drawMarker(canvas, centre, self.CENTRE_COLOUR,
-                       cv2.MARKER_CROSS, markerSize=11, thickness=2)
+                   cv2.MARKER_CROSS, markerSize=11, thickness=2)  # type: ignore[arg-type]
 
         if detection.shape.is_rotationally_free:
             return          # a circle has no direction to draw

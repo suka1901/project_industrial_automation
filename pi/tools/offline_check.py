@@ -58,6 +58,17 @@ def main() -> int:
 
     split = Path(args.split) if args.split else \
         (BASE_DIR / ".." / "model" / "dataset" / "yolo" / "val").resolve()
+    labels = split / "labels"
+    if not labels.is_dir():
+        # ground_truth() treats a missing label file as "nothing expected", so
+        # without this the run completes and reports a confidently wrong score
+        # for all 55 photos - which is worse than failing.
+        log.error("No labels under %s. Every photo would score against an "
+                  "empty ground truth and the result would be meaningless. "
+                  "The Pi bundle must include model/dataset/yolo/val/labels "
+                  "as well as val/images.", labels)
+        return 1
+
     images = sorted((split / "images").glob("*.jpg"))
     if not images:
         log.error("No photos under %s - run tools/split_dataset.py first", split / "images")

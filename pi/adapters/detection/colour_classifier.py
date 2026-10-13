@@ -33,8 +33,9 @@ class HsvColourClassifier(ColourClassifier):
         self,
         hue_ranges: Dict[Colour, Tuple[Tuple[int, int], ...]] | None = None,
         min_saturation: int = 80,
-        min_value: int = 50,
+        min_value: int = 35,
         min_fraction: float = 0.10,
+        min_hue_agreement: float = 0.85,
         achromatic_max_saturation: int = 70,
         white_of_paper: float = 0.80,
         black_of_paper: float = 0.45,
@@ -42,12 +43,25 @@ class HsvColourClassifier(ColourClassifier):
         self._ranges = hue_ranges or DEFAULT_HUE_RANGES
         # Below this saturation a pixel carries no usable hue.
         self._min_saturation = min_saturation
+        # Was 50, which threw away the object along with the noise: six dark
+        # green circles and four blue stars in shadow had almost every pixel
+        # below it, so they reached no colour at all and came out UNKNOWN.
+        # Measured on the labelled photos, 35 recovers all ten without
+        # reaching down into the black objects; 30 starts to.
         self._min_value = min_value
         # If no colour covers this share of the object, report UNKNOWN.
         # Measured on the labelled photos: real colours cover 20-100% of their
         # object, hue noise on a black one covers under 1.4%. 0.10 sits in the
         # empty gap between, about seven times above the noise.
         self._min_fraction = min_fraction
+        # A real colour agrees with itself. Measured over 560 labelled
+        # objects, pixels on a genuinely coloured one point the same way
+        # (agreement 0.96 at the tenth percentile, 0.99 median), while a dark
+        # object's few saturated pixels scatter (0.66 median, never above
+        # 0.82). Abundance alone cannot tell those apart - it was abundance
+        # that let six noisy pixels name a black square BLUE - so the hue has
+        # to be consistent as well as present.
+        self._min_hue_agreement = min_hue_agreement
         self._achromatic_max_saturation = achromatic_max_saturation
         # Fractions of the paper's own brightness, not absolute levels, so the
         # thresholds travel with the exposure.
@@ -88,6 +102,14 @@ class HsvColourClassifier(ColourClassifier):
             # No hue anywhere: the object is white, black or grey.
             return self._achromatic(frame.image, val, inside, np)
 
+        if self._hue_agreement(hue, valid, np) < self._min_hue_agreement:
+            # Coloured pixels that disagree with each other are noise, not a
+            # colour. Falling through to brightness is the safe failure: an
+            # object named UNKNOWN is simply not matched by a colour request,
+            # where a confidently wrong colour sends the robot to the wrong
+            # object without ever saying so.
+            return self._achromatic(frame.image, val, inside, np)
+
         # Divide by the OBJECT's pixels, not by the ones that happen to be
         # saturated. A black object correctly rejects almost all of its pixels
         # as hueless, and dividing by the few left over let six noisy pixels
@@ -109,6 +131,24 @@ class HsvColourClassifier(ColourClassifier):
             return best_colour
         return self._achromatic(frame.image, val, inside, np)
 
+    @staticmethod
+    def _hue_agreement(hue, valid, np) -> float:
+        """How tightly the object's coloured pixels agree on one hue, 0 to 1.
+
+        The mean resultant length of the hues on the unit circle: 1 when every
+        pixel names the same hue, 0 when they are spread evenly. Hue wraps at
+        red, so it has to be averaged as an angle rather than as a number -
+        the same circular-statistics argument as domain/angles.py, done here
+        with numpy because this runs over tens of thousands of pixels per
+        object at ten frames a second.
+        """
+        count = int(np.count_nonzero(valid))
+        if count < 20:
+            return 0.0
+        # OpenCV packs 0-360 degrees into 0-179, so one step is two degrees.
+        angles = hue[valid].astype(np.float64) * (np.pi / 90.0)
+        return float(abs(np.mean(np.exp(1j * angles))))
+
     def _achromatic(self, image, value, inside, np) -> Colour:
         """Name a hueless object by how bright it is against the paper.
 
@@ -118,7 +158,7 @@ class HsvColourClassifier(ColourClassifier):
         import cv2
 
         grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
-        paper = float(np.percentile(grey, 95))
+        paper = float(np.percentile(grey, 90))
         if paper <= 0:
             return Colour.UNKNOWN
 
