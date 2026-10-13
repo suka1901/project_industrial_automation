@@ -215,16 +215,29 @@ MODULE MainModule
         pickPoint := PickTargetFor(request);
         placePoint := PlaceTargetFor(request);
 
+        ! MoveJ for the transits, MoveL only where the PATH matters.
+        !
+        ! A MoveL holds one arm configuration for the whole straight line. With
+        ! ConfL\Off the controller picks the configuration at the target, and
+        ! if getting there needs more than 90 degrees on an axis it refuses:
+        ! "Combination of axes 2 and 3 cause error". That is what the long
+        ! cross-cell move from the sheet to the jig was doing - the destination
+        ! was reachable, the straight line to it was not.
+        !
+        ! Nothing needs a straight line in free space. The four moves that do
+        ! are the ones near a surface: down onto the object, straight up with
+        ! it, down into the slot, straight up out of it. Those stay MoveL so
+        ! the cup lifts and seats cleanly instead of scuffing the part sideways.
         MoveJ Phome, vTravel, fine, vac\WObj:=wobj1;
-        MoveL Papproach, vTravel, fine, vac\WObj:=wobj1;
+        MoveJ Papproach, vTravel, fine, vac\WObj:=wobj1;
 
-        MoveL Offs(pickPoint, 0, 0, APPROACH_HEIGHT_MM), vTravel, fine, vac\WObj:=wobj1;
+        MoveJ Offs(pickPoint, 0, 0, APPROACH_HEIGHT_MM), vTravel, fine, vac\WObj:=wobj1;
         MoveL pickPoint, vApproach, fine, vac\WObj:=wobj1;
         WaitTime SETTLE_TIME;
         VacuumOn;
         MoveL Offs(pickPoint, 0, 0, APPROACH_HEIGHT_MM), vApproach, fine, vac\WObj:=wobj1;
 
-        MoveL Offs(placePoint, 0, 0, APPROACH_HEIGHT_MM), vTravel, fine, vac\WObj:=wobj2;
+        MoveJ Offs(placePoint, 0, 0, APPROACH_HEIGHT_MM), vTravel, fine, vac\WObj:=wobj2;
         MoveL placePoint, vApproach, fine, vac\WObj:=wobj2;
         WaitTime SETTLE_TIME;
         VacuumOff;
