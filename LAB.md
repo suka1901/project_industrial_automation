@@ -281,7 +281,26 @@ least one of each shape, all three picked in each cycle.
 
 ---
 
-## 9. When something is wrong
+## 9. Hand it in — before leaving the lab
+
+Export the station in RobotStudio (**Controller → Pack and Go**), put the
+`.pgz` in `pack-and-go/`, and run from the project root:
+
+```bash
+python make_submission.py
+```
+
+That writes `FinalProject_SurajKarki.zip` with the program files, the trained
+model and the Pack-and-Go, and runs the tests first. It refuses rather than
+writing an incomplete or wrongly named zip — the course reports those as failed
+with no resubmission. `--pack-and-go <path>` takes the file from anywhere.
+
+Do this at the station. The Pack-and-Go has to be the station as examined, and
+it cannot be made afterwards.
+
+---
+
+## 10. When something is wrong
 
 | Symptom | First thing to check |
 |---|---|
