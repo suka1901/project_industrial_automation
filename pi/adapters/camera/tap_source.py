@@ -1,9 +1,10 @@
 """Reads the frame the running system last wrote out.
 
 The Basler can only be opened by one process, so a calibration tool cannot
-take its own frames while main.py is running - and several of them need to:
-angle_match.py measures the object before and after a cycle, and the cycle
-only happens if main.py is there to command it.
+take its own frames while main.py is running - and sometimes it has to:
+slot_angles.py and aruco_check.py both want to look at the table while the
+system is live, to check a reading against what the robot is actually being
+told.
 
 So main.py taps its own capture loop to a file, and the tool reads that file.
 One writer, many readers, no device contention, and the tool measures exactly

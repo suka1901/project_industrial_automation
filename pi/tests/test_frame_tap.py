@@ -1,8 +1,8 @@
 """Tests for sharing frames with a second process.
 
-The Basler opens once. angle_match.py has to measure the object before and
-after a cycle, and only main.py can command that cycle - so the two processes
-must share frames rather than compete for the device.
+The Basler opens once, so a calibration tool that wants to look at the table
+while the system is running cannot open it too. The two processes share frames
+through a file instead of competing for the device.
 
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place

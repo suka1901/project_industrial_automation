@@ -35,8 +35,9 @@ camera:
   capture_fps: 15.0
   # Where to drop the newest frame for another process to read. The Basler
   # can only be opened once, so a calibration tool cannot take its own frames
-  # while main.py is running - and angle_match.py has to, because it measures
-  # the object before and after a cycle that only main.py can command.
+  # while main.py is running - and slot_angles.py or aruco_check.py sometimes
+  # has to look at the table while the system is live. They read this file
+  # instead, with --camera tap.
   # null = off, which costs nothing. Roughly 70 ms of JPEG encoding each time
   # it fires, so leave it off for a production run.
   frame_tap: null
@@ -242,16 +243,24 @@ coordinates:
   # Re-measure whenever the jig moves - the angle depends on the jig's
   # rotation, so nudging it round quietly invalidates all of these.
   # The circle is always 0; it has no orientation to get wrong.
-  # Measured 2026-09-09 with calibration/slot_angles.py, five seatings each.
-  # 'play' is the spread across those seatings - the slot's slack plus
-  # measurement noise - and the placement must tolerate all of it.
-  # SQUARE and STAR agree on 45.5 deg to within half a degree despite having
-  # different symmetry periods, which is the jig plate's own rotation showing
-  # through both: independent confirmation that neither is an artefact.
+  # Measured 2026-10-14 with calibration/slot_angles.py and the fitted
+  # estimator, six seatings each. 'play' is the spread across those seatings -
+  # the slot's slack plus measurement noise - and the placement must tolerate
+  # all of it.
+  #
+  # The play collapsed from 10.83 deg on the star to nothing when the
+  # estimator changed, which says the old figure was measuring the ESTIMATOR
+  # rather than the slot: the harmonic reading wandered by ten degrees on a
+  # star, and the fitted one holds it to a fifth of one. What is left is the
+  # pocket, and a star in a star-shaped pocket has very little freedom.
+  #
+  # The two no longer share a plate angle, as they did when both read 45.5.
+  # That is not a fault: 88.39 and 40.74 differ by more than either period
+  # allows, so the star pocket sits rotated within the plate.
   place_slot_angles_deg:
-    CIRCLE: 0.00   # 1 seating(s), play 0.00 deg
-    STAR: 56.05   # 6 seating(s), LOOSE: 10.83 deg of a 72 deg period
-    SQUARE: 53.48   # 5 seating(s), play 0.30 deg
+    CIRCLE: 0.00   # no orientation to get wrong
+    STAR: 40.74   # 6 seating(s), play 0.00 deg
+    SQUARE: 88.39   # 6 seating(s), play 0.03 deg
 
 robot:
   # This file IS the lab profile, so it expects a real robot. The mock and
