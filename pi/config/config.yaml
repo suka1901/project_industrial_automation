@@ -126,7 +126,7 @@ orientation:
   # 0.60 they are guesses, and are logged as such.
 
 colour:
-  kind: hsv              # hsv | passthrough (passthrough = offline mock only)
+  kind: hsv
   min_saturation: 80
   # 50 threw the object away with the noise: dark green circles and blue
   # stars in shadow had nearly every pixel below it and came out UNKNOWN.
@@ -135,28 +135,13 @@ colour:
   # Share of the OBJECT's own pixels one hue must cover to name it. Measured:
   # real colours cover 20-100%, hue noise on a black object under 1.4%.
   min_fraction: 0.10
-  # A real colour agrees with itself. Genuinely coloured objects score 0.96
-  # and up here; a dark object's few saturated pixels scatter and never got
-  # above 0.82. Below this the object falls through to the brightness test,
-  # which is the safe failure - UNKNOWN just fails to match a colour request,
-  # where a confident wrong colour sends the robot to the wrong object.
   min_hue_agreement: 0.85
   # White and black have no hue, so they are judged on brightness against the
-  # paper instead. Fractions of the paper's own level, so they hold as the
-  # lighting moves.
   achromatic_max_saturation: 70
   white_of_paper: 0.80
   black_of_paper: 0.45
 
-# --- the picking sheet ------------------------------------------------------
-# The A3 sheet, in picking work object millimetres. wobj1's origin sits ON the
-# sheet corner with X along the 420 mm edge, so this is 0,0 and 420x297 by
-# construction - the same values as SHEET_ORIGIN/SHEET_SPAN in StationData.mod.
-#
-# This is what keeps objects already sitting in the JIG from being offered as
-# picking candidates. The jig is in the camera frame on purpose, so the vision
-# system sees those objects and must be told they are not pickable. RAPID
-# refuses an off-board position too, but a refusal wastes the whole cycle.
+# --- the picking sheet ------------------------------------------------
 sheet:
   origin_xy_mm: [0.0, 0.0]
   # +X runs along the SHORT (297 mm) edge, +Y along the long one, because
@@ -167,21 +152,6 @@ sheet:
   # off the paper is still on the table and still worth picking.
   margin_mm: 20.0
 
-# --- ArUco reference marker (README requirement) ----------------------------
-# A 5x5 marker is PRINTED at the exact centre of the A3 sheet. Its four corners
-# give the pixel-to-millimetre mapping every frame, so a nudged camera corrects
-# itself.
-#
-# Printing it is what removes the measurement. wobj1's origin is the sheet
-# corner and its axes run along the sheet edges, so the marker centre is half
-# the sheet in each direction BY CONSTRUCTION - 148.5, 210.0 - and no robot
-# jogging, ruler or tape is involved. Regenerate the sheet with
-#   python tools/make_marker_sheet.py -o ../docs/marker_sheet_a3.pdf
-# and print it at 100% scale; the bar along the bottom must measure 100.0 mm.
-#
-# The marker lies FLAT on the sheet, one object-thickness below the object top
-# faces the camera actually sees. That parallax is corrected in the
-# object_height block below - see the note there.
 aruco:
   dictionary: DICT_5X5_100
   marker_id: 0                 # null = accept any marker in view
@@ -189,126 +159,35 @@ aruco:
   # Half of 297 and half of 420: the centre of the sheet, which is where the
   # marker is printed. Nothing here was measured, so nothing here can drift.
   marker_centre_xy_mm: [148.5, 210.0]
-  #
-  # The printed marker's edges are parallel to the sheet edges, so these two
-  # are exact - but WHICH exact value depends on which physical corner was
-  # taught as wobj1's origin. There are only eight possibilities (four
-  # quarter-turns, mirrored or not), so measure rather than reason:
-  #   1. Lay one object near a sheet corner you can identify.
-  #   2. Read the reported X,Y off the GUI and compare with a ruler from the
-  #      sheet edges.
-  #   3. Both wrong in a way that swaps X and Y -> angle 90 or 270.
-  #      Only Y wrong, mirrored about the sheet centre -> y_axis_flipped true.
-  # Repeat with the object at a second corner before believing the answer.
-  # Measured 2026-09-11 with the circle at 50, 35 from the origin corner:
-  # the reading came back rotated a quarter turn about the marker centre,
-  # so the camera sees the sheet turned 90 deg from the printed page.
   marker_angle_deg: 90.0       # 0 / 90 / 180 / 270 - confirm with the test above
   y_axis_flipped: false        # flip if a test pick comes out mirrored in Y
   redetect_every_n_frames: 1   # 1 = re-solve every frame; raise if time is tight
   hold_last_good: true         # keep working if a hand briefly covers the marker
   scale_tolerance: 0.15        # reject a solve that disagrees with the perimeter check
 
-# All vision coordinates are expressed in the PICKING work object (wobjPick).
-# The placing work object belongs entirely to the robot program - the Pi never
-# computes a placing position, which is why reprogramming the placing jig needs
-# no change here at all.
 coordinates:
   mapper: aruco          # identity | aruco
   angle_sign: -1         # image Y points down; verify once with a 45 deg test object
                          # (with the aruco mapper the homography already handles
                          #  position; this sign only affects the rotation)
   angle_offset_deg: 0.0
-  # The angle each shape must ARRIVE at. Do not work these out from first
-  # principles - measure them. rz = slot_angle - object_angle, and both terms
-  # come from the same camera, so every constant offset cancels itself.
-  #
-  # Position the jig IN THE CAMERA FRAME, then:
-  #
-  #   python calibration/slot_angles.py --camera basler
-  #
-  # Seat the object in its slot, box that slot, press SPACE. Then lift it out,
-  # seat it again, and press SPACE again - at least three times per shape.
-  # A shape-matched slot still has play in it, and the spread across seatings
-  # is the only honest measure of how much. One reading cannot tell you whether
-  # the slot repeats to a tenth of a degree or to five, and the tool's own
-  # frame-to-frame spread only measures camera noise.
-  #
-  # The saved block carries that play beside each angle. It is the tolerance
-  # every placement of that shape has to live inside: a slot marked LOOSE
-  # forgives a sloppy arrival angle, a tight one does not.
-  #
-  # If the jig CANNOT be brought into frame, lift each object straight out of
-  # its slot without turning it, set it on the picking sheet and measure there.
-  # It works, but your hand is now between the slot and the number: any twist
-  # during the lift becomes a permanent error in a value every placement
-  # depends on, and the reading will look perfectly steady while being wrong.
-  #
-  # Re-measure whenever the jig moves - the angle depends on the jig's
-  # rotation, so nudging it round quietly invalidates all of these.
-  # The circle is always 0; it has no orientation to get wrong.
-  # Measured 2026-10-14 with calibration/slot_angles.py and the fitted
-  # estimator, six seatings each. 'play' is the spread across those seatings -
-  # the slot's slack plus measurement noise - and the placement must tolerate
-  # all of it.
-  #
-  # The play collapsed from 10.83 deg on the star to nothing when the
-  # estimator changed, which says the old figure was measuring the ESTIMATOR
-  # rather than the slot: the harmonic reading wandered by ten degrees on a
-  # star, and the fitted one holds it to a fifth of one. What is left is the
-  # pocket, and a star in a star-shaped pocket has very little freedom.
-  #
-  # The two no longer share a plate angle, as they did when both read 45.5.
-  # That is not a fault: 88.39 and 40.74 differ by more than either period
-  # allows, so the star pocket sits rotated within the plate.
+  # The angle each shape must ARRIVE at
+  # rz = slot_angle - object_angle
   place_slot_angles_deg:
     CIRCLE: 0.00   # no orientation to get wrong
     STAR: 40.74   # 6 seating(s), play 0.00 deg
     SQUARE: 88.39   # 6 seating(s), play 0.03 deg
 
 robot:
-  # This file IS the lab profile, so it expects a real robot. The mock and
-  # offline profiles override this to loopback.
   transport: tcp         # loopback | tcp
-  # The address THIS machine listens on - the robot dials in to us, so this
-  # is never the robot's address.
-  #
-  # 0.0.0.0 means every interface. That is deliberate rather than lazy: the
-  # server runs on the PC during development and on the Raspberry Pi at the
-  # exam, and those have different addresses, so a fixed one here is a file
-  # that must be edited on the day. Binding a specific address that no adapter
-  # holds fails with WinError 10049 / EADDRNOTAVAIL, which is what a pulled
-  # cable or a changed DHCP lease looks like.
-  #
-  # Pin it to one address only if the machine is on more than one network and
-  # the robot must be kept off the others. Check the real one with 'ipconfig'
-  # (Windows) or 'ip addr' (Linux). The PC has been seen at 192.168.125.201.
   host: 0.0.0.0
   port: 5000
   accept_timeout_s: 120.0
-  # The robot answers only after the operator has pressed the yellow button
-  # AND the motion has finished, so this waits on a person, not a machine.
   reply_timeout_s: 300.0
-  max_attempts: 3        # first try plus the two retries the course allows
-  # Pause before a retry, so it looks at a NEW frame. Straight away it read
-  # the same scene as the failed attempt and failed the same way.
+  max_attempts: 3        # first try plus the two retries 
   retry_delay_s: 1.5
-  # A cycle requested while the robot is not connected waits this long for it
-  # instead of spending all three attempts in the same second. Past this the
-  # cycle is reported as not attempted, with the attempts still unused.
+  # A cycle requested while the robot is not connected waits this long 
   connect_wait_s: 30.0
-  # After the robot reports success the board is checked again: an object of
-  # the same shape still within this distance means the cup never lifted it.
-  # This is what makes the retry real, since the cup has no grip sensor and
-  # the robot reports DONE whether or not it actually carried anything.
-  #
-  # 10 mm: the mapping agrees with the robot to 1-2 mm, so a failed pick sits
-  # well inside it, and the objects are 50-60 mm across and never touching,
-  # so no neighbour of the same shape can be mistaken for the one that
-  # stayed. It costs one extra inference per cycle, about 0.4 s.
-  #
-  # 0 disables it, which the mock and offline profiles do: their scene is a
-  # still photo, so every pick would look like it never left.
   verify_tolerance_mm: 10.0
 
 vision:

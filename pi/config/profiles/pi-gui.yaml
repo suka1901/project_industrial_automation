@@ -25,7 +25,7 @@ camera:
 gui:
   kind: tk
   # Smaller than on the PC: here the window shares four cores with ncnn, and
-  # the rescale is what it spends them on. 640 costs about 40 per cent of what
+  # the rescale is what it spends them on. 640 costs about 40 percent of what
   # 1000 does, for a picture nobody is measuring from.
   preview_max_width: 640
   # Both, deliberately: the window shows the live view on the Pi's
