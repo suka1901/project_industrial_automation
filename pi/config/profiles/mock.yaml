@@ -23,3 +23,6 @@ coordinates:
 
 robot:
   transport: loopback
+  # The scene is a still photo: nothing the robot "picks" ever leaves the
+  # board, so the camera check would call every pick a failure.
+  verify_tolerance_mm: 0.0

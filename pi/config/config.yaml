@@ -299,10 +299,17 @@ robot:
   connect_wait_s: 30.0
   # After the robot reports success the board is checked again: an object of
   # the same shape still within this distance means the cup never lifted it.
-  # This is what makes the retry real, since the robot has no grip sensor.
-  # 0 disables it - required for the mock profile, whose scene never changes.
-  # Set 10-15 mm in the lab.
-  verify_tolerance_mm: 0.0
+  # This is what makes the retry real, since the cup has no grip sensor and
+  # the robot reports DONE whether or not it actually carried anything.
+  #
+  # 10 mm: the mapping agrees with the robot to 1-2 mm, so a failed pick sits
+  # well inside it, and the objects are 50-60 mm across and never touching,
+  # so no neighbour of the same shape can be mistaken for the one that
+  # stayed. It costs one extra inference per cycle, about 0.4 s.
+  #
+  # 0 disables it, which the mock and offline profiles do: their scene is a
+  # still photo, so every pick would look like it never left.
+  verify_tolerance_mm: 10.0
 
 vision:
   inference_budget_ms: 3000.0

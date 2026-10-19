@@ -67,3 +67,33 @@ class TestLoadConfig(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheProfilesAgreeWithTheHardwareTheyRunOn(unittest.TestCase):
+    """Settings that are right on the station and wrong off it.
+
+    The camera check after a pick is the clearest: on the bench it is what
+    makes a retry real, and against a saved photo - where nothing the robot
+    "picks" ever leaves the board - it would call every pick a failure and
+    break the one test you run before setting off.
+    """
+
+    CONFIG = Path(__file__).resolve().parents[1] / "config"
+
+    def _robot(self, profile):
+        return load_config(self.CONFIG / profile).get("robot", {})
+
+    def test_the_lab_config_verifies_the_pick(self):
+        self.assertGreaterEqual(self._robot("config.yaml")["verify_tolerance_mm"], 5.0)
+
+    def test_the_still_photo_profiles_do_not(self):
+        for profile in ("profiles/mock.yaml", "profiles/offline.yaml"):
+            with self.subTest(profile=profile):
+                self.assertEqual(self._robot(profile)["verify_tolerance_mm"], 0.0)
+
+    def test_the_pi_profiles_keep_the_lab_setting(self):
+        """pi.yaml overrides the detector and the view, not the cell."""
+        for profile in ("profiles/pi.yaml", "profiles/pi-gui.yaml"):
+            with self.subTest(profile=profile):
+                self.assertGreaterEqual(
+                    self._robot(profile)["verify_tolerance_mm"], 5.0)

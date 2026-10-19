@@ -400,6 +400,7 @@ into `robot/` so the repo matches what the Pack-and-Go captured.
 | Symptom | First thing to check |
 |---|---|
 | `ModuleNotFoundError` on the Pi | the venv: `source ~/venv/bin/activate` |
+| "the object is still on the board", but it was picked | the camera check after the pick. The arm should be clear at `Phome`; if it is in frame, or the scene is stale, lower `robot.verify_tolerance_mm` or set it to 0 |
 | `ModuleNotFoundError: ultralytics` | you ran `python3 main.py` instead of `./run.sh` |
 | nothing rotates | the fit scores in the log — below 0.6 it is lighting, not the robot |
 | everything rotates the wrong way | `coordinates.angle_sign` |
