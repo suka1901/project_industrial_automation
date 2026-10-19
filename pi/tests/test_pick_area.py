@@ -73,3 +73,33 @@ class TestPickAreaSelector(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestItAgreesWithTheRobotsFence(unittest.TestCase):
+    """The same rectangle is described in two files, and they must not drift.
+
+    An object offered here but refused by the robot as "off board" costs an
+    attempt, and the retry reads the same scene and offers it again - three
+    attempts on an object that was never going to be picked.
+    """
+
+    ROOT = Path(__file__).resolve().parents[2]
+
+    def _robot_constant(self, name):
+        import re
+        text = (self.ROOT / "robot" / "StationData.mod").read_text(encoding="utf-8")
+        return float(re.search(rf"CONST\s+num\s+{name}\s*:=\s*([-\d.]+)", text).group(1))
+
+    def _config(self):
+        from infrastructure.config_loader import load_config
+        return load_config(self.ROOT / "pi" / "config" / "config.yaml")
+
+    def test_the_margin_is_no_wider_than_the_robots(self):
+        self.assertLessEqual(self._config()["sheet"]["margin_mm"],
+                             self._robot_constant("SHEET_MARGIN_MM"))
+
+    def test_the_sheet_is_the_same_rectangle_in_both(self):
+        span = self._config()["sheet"]["span_xy_mm"]
+        self.assertEqual([float(span[0]), float(span[1])],
+                         [self._robot_constant("SHEET_SPAN_X"),
+                          self._robot_constant("SHEET_SPAN_Y")])

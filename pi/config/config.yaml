@@ -148,9 +148,13 @@ sheet:
   # that is how wobj1 was taught: X1 at the sheet corner, X2 jogged along
   # the short edge.
   span_xy_mm: [297.0, 420.0]
-  # Generous: it only has to stay well clear of the jig, and an object half
-  # off the paper is still on the table and still worth picking.
-  margin_mm: 20.0
+  # Must not exceed SHEET_MARGIN_MM in StationData.mod, which is 15. The
+  # robot refuses anything past its own fence with "off board", and an object
+  # offered here but refused there costs a whole attempt - then the retry
+  # reads the same scene, offers the same object, and spends the next two.
+  # The robot's fence is the authority: it is what stands between a
+  # miscalibrated camera and the fixture.
+  margin_mm: 15.0
 
 aruco:
   dictionary: DICT_5X5_100
