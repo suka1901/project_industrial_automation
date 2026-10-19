@@ -61,9 +61,11 @@ class FittedOrientationEstimator(OrientationEstimator):
         # Tried in order, cheapest first, and the sweep stops early on a good
         # fit - so a plainly visible object costs one segmentation, not four.
         self._candidates = candidates or list(CANDIDATE_MASKS)
-        # Not a refusal: below this the reading is reported as a guess and
-        # logged as one. Measured: trustworthy readings sit above 0.75, and
-        # the ones that are wrong by more than a degree or two below 0.6.
+        # Which route the angle takes, not a refusal: at or above this the
+        # winning mask is trusted on its own, below it the candidates'
+        # consensus is taken instead and the reading is logged as a guess.
+        # Measured: trustworthy readings sit above 0.75, and the ones wrong by
+        # more than a degree or two below 0.6.
         self._min_fit = min_fit
         self._good_enough_fit = good_enough_fit
         self._step_deg = step_deg

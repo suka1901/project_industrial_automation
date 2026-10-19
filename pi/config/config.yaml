@@ -86,7 +86,11 @@ orientation:
   mask_candidates: [otsu, chroma, gradient, edges]
   # Overlap with an ideal shape, 0 to 1. Measured on the labelled photos:
   # right answers sit above 0.75, wrong ones below 0.6.
-  min_fit: 0.60          # below this there is no angle to report at all
+  # Which route the angle takes, not a gate - nothing is refused on it. At or
+  # above this the winning mask's own angle is used; below it, the four masks'
+  # fit-weighted consensus is used instead and the log names the reading as a
+  # guess. Measured: readings above 0.75 are reliable, ones below 0.60 are not.
+  min_fit: 0.60
   good_enough_fit: 0.85  # stop trying other segmentations once this is met
   fit_step_deg: 2.0      # sweep step; a parabola refines the winner
   agreement_deg: 4.0     # how far the two angle readings may differ
