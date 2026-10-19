@@ -13,7 +13,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from adapters.gui.formatting import NO_ANGLE, angle_confidence_text
 from application.shared_state import SharedState
 from domain.enums import Colour, Shape
-from domain.models import BoundingBox, Detection, PixelPoint
+from domain.models import BoundingBox, Detection, PixelPoint, Preview
+
+
+def shown(snapshot) -> Preview:
+    """The preview a reader would draw.
+
+    Every test below publishes a frame before it looks, so no preview here
+    means the publishing broke - which is a failure, not a case to handle.
+    """
+    preview = snapshot.preview
+    assert preview is not None
+    return preview
 
 
 def detection() -> Detection:
@@ -27,7 +38,7 @@ class TestPreview(unittest.TestCase):
         """They are one value, so the GUI cannot mix frames and boxes."""
         state = SharedState()
         state.set_preview("frame-7", [detection()], sequence=7)
-        preview = state.snapshot().preview
+        preview = shown(state.snapshot())
         self.assertEqual(preview.image, "frame-7")
         self.assertEqual(preview.sequence, 7)
         self.assertEqual(len(preview.detections), 1)
@@ -35,15 +46,15 @@ class TestPreview(unittest.TestCase):
     def test_detections_are_a_tuple_the_gui_cannot_mutate(self):
         state = SharedState()
         state.set_preview("frame", [detection()], sequence=1)
-        self.assertIsInstance(state.snapshot().preview.detections, tuple)
+        self.assertIsInstance(shown(state.snapshot()).detections, tuple)
 
     def test_snapshots_are_immutable_so_a_reader_is_never_half_updated(self):
         state = SharedState()
         state.set_preview("first", [], sequence=1)
         held = state.snapshot()
         state.set_preview("second", [], sequence=2)
-        self.assertEqual(held.preview.image, "first")
-        self.assertEqual(state.snapshot().preview.image, "second")
+        self.assertEqual(shown(held).image, "first")
+        self.assertEqual(shown(state.snapshot()).image, "second")
 
     def test_no_preview_before_the_first_frame(self):
         self.assertIsNone(SharedState().snapshot().preview)
@@ -92,7 +103,7 @@ class TestTheLivePreview(unittest.TestCase):
     def test_inference_publishes_frame_and_boxes_together(self):
         state = SharedState()
         state.set_preview("frame-3", [detection()], sequence=3)
-        preview = state.snapshot().preview
+        preview = shown(state.snapshot())
         self.assertEqual(preview.sequence, 3)
         self.assertEqual(preview.detections_sequence, 3)
 
@@ -100,7 +111,7 @@ class TestTheLivePreview(unittest.TestCase):
         state = SharedState()
         state.set_preview("frame-3", [detection()], sequence=3)
         state.set_preview_image("frame-9", sequence=9)
-        preview = state.snapshot().preview
+        preview = shown(state.snapshot())
         self.assertEqual(preview.image, "frame-9")
         self.assertEqual(len(preview.detections), 1)
 
@@ -108,13 +119,13 @@ class TestTheLivePreview(unittest.TestCase):
         state = SharedState()
         state.set_preview("frame-3", [detection()], sequence=3)
         state.set_preview_image("frame-9", sequence=9)
-        preview = state.snapshot().preview
+        preview = shown(state.snapshot())
         self.assertEqual(preview.sequence - preview.detections_sequence, 6)
 
     def test_a_frame_before_any_inference_has_no_boxes(self):
         state = SharedState()
         state.set_preview_image("frame-1", sequence=1)
-        preview = state.snapshot().preview
+        preview = shown(state.snapshot())
         self.assertEqual(preview.detections, ())
         self.assertEqual(preview.image, "frame-1")
 
@@ -123,6 +134,6 @@ class TestTheLivePreview(unittest.TestCase):
         state.set_preview("frame-3", [detection()], sequence=3)
         state.set_preview_image("frame-9", sequence=9)
         state.set_preview("frame-10", [detection(), detection()], sequence=10)
-        preview = state.snapshot().preview
+        preview = shown(state.snapshot())
         self.assertEqual(preview.sequence, preview.detections_sequence)
         self.assertEqual(len(preview.detections), 2)

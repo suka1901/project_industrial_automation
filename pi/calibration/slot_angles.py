@@ -263,9 +263,9 @@ def main() -> int:
                 # A zero-width selection means the operator pressed ESC.
                 # The box is drawn on the shrunken preview, so it must be
                 # scaled back up before it can search the real frame.
-                regions[selected] = (to_full_resolution(chosen, scale)
-                                     if chosen[2] and chosen[3] else None)
-                if regions[selected] is None:
+                if chosen[2] and chosen[3]:
+                    regions[selected] = to_full_resolution(chosen, scale)
+                else:
                     regions.pop(selected, None)
                 history.clear()
             if key in (ord("c"), ord("C")):

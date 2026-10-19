@@ -13,6 +13,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 
 from calibration.slot_angles import largest_object_box
+from domain.models import BoundingBox
+
+
+def found(image, region=None) -> BoundingBox:
+    """The box these tests expect to be there."""
+    box = largest_object_box(image, region)
+    assert box is not None, "nothing was found in the scene"
+    return box
 
 
 def scene() -> np.ndarray:
@@ -26,17 +34,17 @@ def scene() -> np.ndarray:
 class TestRegionRestriction(unittest.TestCase):
     def test_without_a_region_the_biggest_thing_wins(self):
         """Which is the jig plate, not the object - hence the region."""
-        box = largest_object_box(scene())
+        box = found(scene())
         self.assertLess(box.u_min, 260)
 
     def test_a_region_selects_the_object_in_that_slot(self):
-        box = largest_object_box(scene(), region=(380, 160, 120, 120))
+        box = found(scene(), region=(380, 160, 120, 120))
         self.assertGreater(box.u_min, 380)
 
     def test_coordinates_come_back_in_full_frame_space(self):
         """The crop offset must be added back, or every angle is measured on
         the right shape at the wrong place."""
-        box = largest_object_box(scene(), region=(380, 160, 120, 120))
+        box = found(scene(), region=(380, 160, 120, 120))
         self.assertAlmostEqual(box.u_min, 400, delta=2)
         self.assertAlmostEqual(box.v_min, 180, delta=2)
         self.assertAlmostEqual(box.u_max, 460, delta=2)

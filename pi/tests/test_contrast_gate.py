@@ -12,6 +12,7 @@ Course: INA700 - AI-based pick and place
 
 import sys
 import unittest
+from typing import Any
 from pathlib import Path
 
 import cv2
@@ -26,8 +27,8 @@ SIZE = 140
 
 def scene(paper: int, ink: int) -> np.ndarray:
     """A square object of one grey on paper of another."""
-    image = np.full((SIZE, SIZE, 3), paper, np.uint8)
-    cv2.rectangle(image, (40, 40), (100, 100), (ink,) * 3, -1)
+    image: Any = np.full((SIZE, SIZE, 3), paper, np.uint8)
+    cv2.rectangle(image, (40, 40), (100, 100), (ink, ink, ink), -1)
     return image
 
 

@@ -41,7 +41,7 @@ def labelled_stems(labels_dir: Path) -> set:
 def predict(model_path: str, images: List[Path], names: List[str],
             image_size: int, confidence: float) -> List[Dict[str, Any]]:
     """Run the model and shape each result the way Label Studio expects."""
-    from ultralytics import YOLO
+    from ultralytics import YOLO  # pyright: ignore[reportMissingImports]
 
     model = YOLO(model_path, task="detect")
     out: List[Dict[str, Any]] = []

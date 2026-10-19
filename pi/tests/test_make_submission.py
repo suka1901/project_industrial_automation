@@ -83,8 +83,9 @@ class TestThePackAndGoIsFound(unittest.TestCase):
             (folder / "morning.pgz").write_text("old")
             time.sleep(0.01)
             (folder / "after_the_exam.pgz").write_text("new")
-            self.assertEqual(builder.find_pack_and_go(None, root).name,
-                             "after_the_exam.pgz")
+            newest = builder.find_pack_and_go(None, root)
+            assert newest is not None, "neither Pack-and-Go was found"
+            self.assertEqual(newest.name, "after_the_exam.pgz")
 
 
 if __name__ == "__main__":

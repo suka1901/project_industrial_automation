@@ -145,7 +145,7 @@ class PipeCommandReader:
                         "named pipes - ignoring %s", self._path)
             return False
         try:
-            os.mkfifo(self._path, 0o666)
+            os.mkfifo(self._path, 0o666)  # pyright: ignore[reportAttributeAccessIssue]
         except OSError as exc:
             log.warning("Could not create the command pipe %s: %s", self._path, exc)
             return False

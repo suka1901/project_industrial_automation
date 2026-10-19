@@ -37,7 +37,7 @@ class YoloDetector(ObjectDetector):
         """Load the model on first use and return it."""
         if self._model is None:
             try:
-                from ultralytics import YOLO  # lazy import keeps startup light
+                from ultralytics import YOLO  # lazy import keeps startup light  # pyright: ignore[reportMissingImports]
             except ImportError as exc:
                 # Almost always the Pi, run without --config. Naming the
                 # missing package sends people off to install a 2 GB CUDA

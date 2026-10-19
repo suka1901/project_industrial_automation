@@ -34,7 +34,7 @@ from typing import Dict, List, Optional, Tuple
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
-from domain.enums import Shape                                      # noqa: E402
+from domain.enums import Colour, Shape                              # noqa: E402
 from domain.models import BoundingBox, Detection, Frame             # noqa: E402
 
 DATA = (BASE_DIR / ".." / "model" / "dataset").resolve()
@@ -139,7 +139,7 @@ def read(estimator, crop, shape: Shape):
     """Measure one crop, as the pipeline would, and time it."""
     height, width = crop.shape[:2]
     whole = BoundingBox(0.0, 0.0, float(width), float(height))
-    detection = Detection(shape=shape, colour=None, confidence=1.0,
+    detection = Detection(shape=shape, colour=Colour.UNKNOWN, confidence=1.0,
                           centre=whole.centre, angle_deg=0.0, box=whole)
     started = time.perf_counter()
     measured = estimator.measure(Frame(image=crop, sequence=0, captured_at=0.0),
@@ -148,7 +148,7 @@ def read(estimator, crop, shape: Shape):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--limit", type=int, default=120)
     parser.add_argument("--shape", default=None, choices=("square", "star"))
     parser.add_argument("--gates", action="store_true",

@@ -18,7 +18,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from domain.enums import Shape
+from domain.enums import Colour, Shape
 from domain.models import BoundingBox, Detection, Frame
 from adapters.detection.fitted_orientation_estimator import (
     FittedOrientationEstimator, area_harmonic_angle, consensus_angle)
@@ -44,7 +44,7 @@ def scene(shape: Shape, turn_deg: float, ink: int = 40, noise: int = 0):
         canvas = cv2.add(canvas, np.random.default_rng(1).integers(
             0, noise, canvas.shape, dtype=np.uint8))
     box = BoundingBox(offset + 30, offset + 30, offset + PATCH - 30, offset + PATCH - 30)
-    detection = Detection(shape=shape, colour=None, confidence=1.0,
+    detection = Detection(shape=shape, colour=Colour.UNKNOWN, confidence=1.0,
                           centre=box.centre, angle_deg=0.0, box=box)
     return Frame(image=canvas, sequence=0, captured_at=0.0), detection
 
@@ -98,7 +98,7 @@ class TestItAlwaysGuesses(unittest.TestCase):
     def test_a_poor_fit_still_yields_an_angle(self):
         # A square measured as if it were a star: nothing will fit well.
         frame, square = scene(Shape.SQUARE, 20.0)
-        as_star = Detection(shape=Shape.STAR, colour=None, confidence=1.0,
+        as_star = Detection(shape=Shape.STAR, colour=Colour.UNKNOWN, confidence=1.0,
                             centre=square.centre, angle_deg=0.0, box=square.box)
         measured = FittedOrientationEstimator().measure(frame, as_star)
         self.assertLess(measured.confidence, 0.75)       # honestly reported
@@ -134,7 +134,7 @@ class TestWhatItRefuses(unittest.TestCase):
     def test_a_square_does_not_pass_as_a_star(self):
         """The fit still has to be honest, even though nothing is refused on it."""
         frame, square = scene(Shape.SQUARE, 0.0)
-        as_star = Detection(shape=Shape.STAR, colour=None, confidence=1.0,
+        as_star = Detection(shape=Shape.STAR, colour=Colour.UNKNOWN, confidence=1.0,
                             centre=square.centre, angle_deg=0.0, box=square.box)
         self.assertLess(FittedOrientationEstimator().measure(frame, as_star).confidence,
                         0.75)
@@ -158,7 +158,10 @@ class TestTheCentre(unittest.TestCase):
 class TestThePieces(unittest.TestCase):
     def test_fit_scores_the_right_shape_higher(self):
         square = ideal_shape(4, 96)
-        self.assertGreater(fit_shape(square, 4)[1], fit_shape(square, 5)[1])
+        as_square = fit_shape(square, 4)
+        as_star = fit_shape(square, 5)
+        assert as_square is not None and as_star is not None
+        self.assertGreater(as_square[1], as_star[1])
 
     def test_area_harmonic_needs_enough_pixels(self):
         self.assertIsNone(area_harmonic_angle(np.zeros((40, 40), np.uint8), 4))

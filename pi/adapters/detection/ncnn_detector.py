@@ -63,8 +63,8 @@ class NcnnDetector(ObjectDetector):
     def _ensure_loaded(self) -> Any:
         """Load the net once. ncnn keeps the weights mapped, so this is cheap."""
         if self._net is None:
-            import ncnn
-            net = ncnn.Net()
+            import ncnn  # pyright: ignore[reportMissingImports]
+            net = ncnn.Net()  # pyright: ignore[reportAttributeAccessIssue]
             net.opt.use_vulkan_compute = False      # no GPU on the Pi
             net.opt.num_threads = self._num_threads
             param = f"{self._model_dir}/model.ncnn.param"
@@ -117,12 +117,13 @@ class NcnnDetector(ObjectDetector):
 
     def _infer(self, canvas: Any) -> Any:
         """Run the net on a prepared canvas and return the raw (rows, 8400) output."""
-        import ncnn
+        import ncnn  # pyright: ignore[reportMissingImports]
         import numpy as np
 
         net = self._ensure_loaded()
-        mat = ncnn.Mat.from_pixels(canvas, ncnn.Mat.PixelType.PIXEL_BGR2RGB,
-                                   self._image_size, self._image_size)
+        mat = ncnn.Mat.from_pixels(  # pyright: ignore[reportAttributeAccessIssue]
+            canvas, ncnn.Mat.PixelType.PIXEL_BGR2RGB,  # pyright: ignore[reportAttributeAccessIssue]
+            self._image_size, self._image_size)
         # The model was trained on 0-1 inputs; ncnn takes 0-255 pixels.
         mat.substract_mean_normalize([], [1 / 255.0] * 3)
 

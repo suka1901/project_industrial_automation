@@ -123,7 +123,7 @@ def build(files: List[Path], pack_and_go: Optional[Path],
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--pack-and-go", default=None,
                         help="the station's Pack-and-Go file; without it, the "
                              f"newest one in {PACK_AND_GO_FOLDER}/ is used")

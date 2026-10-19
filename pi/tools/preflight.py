@@ -76,7 +76,7 @@ def check_package(label: str, module: str, install: str) -> None:
 def check_camera(grab: bool) -> Optional[Any]:
     """Enumerate Basler cameras and optionally grab one frame."""
     try:
-        from pypylon import pylon
+        from pypylon import pylon  # pyright: ignore[reportMissingImports]
     except ImportError:
         record("pypylon", FAIL,
                "not installed - install the Basler Pylon SDK, then pip install pypylon")
@@ -197,14 +197,14 @@ def check_config() -> None:
     # after the camera and the GUI have already started.
     if detector_kind == "yolo":
         try:
-            import ultralytics  # noqa: F401
+            import ultralytics  # noqa: F401  # pyright: ignore[reportMissingImports]
         except ImportError:
             record("config: detector", FAIL,
                    "kind is 'yolo' but ultralytics is not installed - on the Pi "
                    "run with --config config/profiles/pi.yaml (kind: ncnn)")
     elif detector_kind == "ncnn":
         try:
-            import ncnn  # noqa: F401
+            import ncnn  # noqa: F401  # pyright: ignore[reportMissingImports]
             record("config: detector", PASS, "kind=ncnn, no torch needed")
         except ImportError:
             record("config: detector", FAIL, "kind is 'ncnn' but ncnn is not installed")
@@ -397,7 +397,8 @@ def current_exposure_us(camera: Optional[Any]) -> Optional[float]:
             try:
                 if hasattr(node, "GetValue"):
                     return float(node.GetValue())
-                return float(node() if callable(node) else node)
+                value: Any = node() if callable(node) else node
+                return float(value)
             except Exception:
                 continue
     return None

@@ -60,7 +60,7 @@ def ideal_shape(order: int, size: int = WINDOW_PX) -> Any:
             corners.append((centre + radius * STAR_INNER_RATIO * math.cos(valley),
                             centre + radius * STAR_INNER_RATIO * math.sin(valley)))
 
-    canvas = np.zeros((size, size), np.uint8)
+    canvas: Any = np.zeros((size, size), np.uint8)
     cv2.fillPoly(canvas, [np.array(corners, np.int32)], 255)
     _TEMPLATES[key] = canvas
     return canvas
@@ -94,7 +94,7 @@ def fit_shape(mask: Any, order: int, size: int = WINDOW_PX,
     window = cv2.warpAffine(
         mask,
         np.array([[scale, 0.0, size / 2.0 - scale * centre_x],
-                  [0.0, scale, size / 2.0 - scale * centre_y]], np.float32),
+                  [0.0, scale, size / 2.0 - scale * centre_y]], np.float64),
         (size, size), flags=cv2.INTER_NEAREST)
     window = (window > 127).astype(np.uint8)
 

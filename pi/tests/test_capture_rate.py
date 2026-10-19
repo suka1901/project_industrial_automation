@@ -22,9 +22,10 @@ import numpy as np
 
 from domain.models import Frame
 from infrastructure.runtime import CaptureWorker
+from ports.interfaces import FrameSource
 
 
-class InstantSource:
+class InstantSource(FrameSource):
     """A source with no cost at all, so only the throttle limits the rate."""
 
     def __init__(self):
@@ -104,13 +105,14 @@ class TestTheCapturePublishesThePicture(unittest.TestCase):
         from infrastructure.runtime import CaptureWorker
 
         frames = []
+        case = self
 
-        class Source:
+        class Source(FrameSource):
             def open(self): pass
             def close(self): pass
-            def read(inner):
+            def read(self):
                 frames.append(len(frames) + 1)
-                return self._frame(len(frames))
+                return case._frame(len(frames))
 
         return CaptureWorker(threading.Event(), Source(), queue.Queue(maxsize=2),
                              max_fps=0.0, state=state)
@@ -122,6 +124,7 @@ class TestTheCapturePublishesThePicture(unittest.TestCase):
         worker.step()
         worker.step()
         preview = state.snapshot().preview
+        assert preview is not None, "the grab never reached the window"
         self.assertEqual(preview.image, "image-2")
         self.assertEqual(preview.sequence, 2)
 

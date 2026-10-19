@@ -28,6 +28,13 @@ def handlers():
     return stream[0], (files[0] if files else None)
 
 
+def log_file_handler() -> logging.FileHandler:
+    """The root's file handler. Every caller configured one first."""
+    _, handler = handlers()
+    assert handler is not None, "no log file is attached to the root"
+    return handler
+
+
 def release_handlers():
     """Close and detach every root handler.
 
@@ -66,9 +73,9 @@ class TestTheTerminalCanBeQuieterThanTheFile(unittest.TestCase):
         configure_logging(level="INFO",
                           log_file=str(Path(self.folder.name) / "a.log"),
                           console_level="WARNING")
-        stream, file_handler = handlers()
+        stream, _ = handlers()
         self.assertEqual(stream.level, logging.WARNING)
-        self.assertEqual(file_handler.level, logging.INFO)
+        self.assertEqual(log_file_handler().level, logging.INFO)
 
     def test_the_root_still_passes_info_through_to_the_file(self):
         """The trap: set the root to WARNING and the file never sees INFO."""
@@ -106,10 +113,11 @@ class TestTheLogFileIsReleased(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             configure_logging(level="INFO",
                               log_file=str(Path(folder) / "held.log"))
-            _, file_handler = handlers()
+            file_handler = log_file_handler()
             # Hold the stream: close() sets handler.stream to None, so asking
             # the handler afterwards tells you nothing about the file.
             stream = file_handler.stream
+            assert stream is not None, "the handler opened no file"
             self.assertFalse(stream.closed)
             release_handlers()
             self.assertTrue(stream.closed,

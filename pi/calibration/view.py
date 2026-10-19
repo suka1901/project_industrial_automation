@@ -11,7 +11,7 @@ Course: INA700 - AI-based pick and place
 
 from __future__ import annotations
 
-from typing import Any, Tuple
+from typing import Any, Sequence, Tuple
 
 DISPLAY_WIDTH = 1100        # comfortable on a laptop; nothing measures this
 DISPLAY_HEIGHT = 760        # a 2448x2048 frame is still 920 tall at 1100 wide
@@ -37,16 +37,19 @@ def shrink(image: Any, scale: float) -> Any:
     import cv2
     if scale >= 1.0:
         return image.copy()
-    return cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    return cv2.resize(image, (0, 0), fx=scale, fy=scale,
+                      interpolation=cv2.INTER_AREA)
 
 
-def to_full_resolution(box: Tuple[int, int, int, int],
+def to_full_resolution(box: Sequence[float],
                        scale: float) -> Tuple[int, int, int, int]:
     """Map an (x, y, w, h) drawn on the preview back onto the real frame.
 
     Skipping this is the trap: the box would look right on screen and then
     search the wrong part of the image, a tenth of the way in from the corner.
     """
+    x, y, w, h = box
     if scale <= 0.0:
-        return tuple(int(v) for v in box)
-    return tuple(int(round(v / scale)) for v in box)
+        return int(x), int(y), int(w), int(h)
+    return (int(round(x / scale)), int(round(y / scale)),
+            int(round(w / scale)), int(round(h / scale)))

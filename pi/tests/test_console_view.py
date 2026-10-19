@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from domain.enums import Colour, Shape
+from domain.models import PickRequest, StateSnapshot
 import threading
 import time
 
@@ -26,10 +27,20 @@ def ask(text):
     return parse_request(text, ALLOWED)
 
 
+def understood(text) -> PickRequest:
+    """What the operator's words came to, for the words that parse.
+
+    The refusal tests below use `ask` and look at the message instead.
+    """
+    request, _ = ask(text)
+    assert request is not None
+    return request
+
+
 class TestUnderstandsTheOperator(unittest.TestCase):
 
     def test_shape_and_colour(self):
-        request, _ = ask("circle red")
+        request = understood("circle red")
         self.assertIs(request.shape, Shape.CIRCLE)
         self.assertIs(request.colour, Colour.RED)
 
@@ -40,27 +51,27 @@ class TestUnderstandsTheOperator(unittest.TestCase):
         self.assertEqual(a, b)
 
     def test_case_does_not_matter(self):
-        request, _ = ask("Circle RED")
+        request = understood("Circle RED")
         self.assertIs(request.shape, Shape.CIRCLE)
         self.assertIs(request.colour, Colour.RED)
 
     def test_a_shape_alone_means_any_colour(self):
-        request, _ = ask("star")
+        request = understood("star")
         self.assertIs(request.shape, Shape.STAR)
         self.assertIsNone(request.colour)
 
     def test_a_colour_alone_means_any_shape(self):
-        request, _ = ask("blue")
+        request = understood("blue")
         self.assertIsNone(request.shape)
         self.assertIs(request.colour, Colour.BLUE)
 
     def test_the_word_any_is_ignored(self):
-        request, _ = ask("any red")
+        request = understood("any red")
         self.assertIsNone(request.shape)
         self.assertIs(request.colour, Colour.RED)
 
     def test_extra_spaces_are_harmless(self):
-        request, _ = ask("   circle    red   ")
+        request = understood("   circle    red   ")
         self.assertIs(request.shape, Shape.CIRCLE)
 
 
@@ -101,10 +112,9 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class _Snapshot:
-    """Just enough of StateSnapshot for the status watcher."""
-
-    status_text = "idle"
+def idle() -> StateSnapshot:
+    """What the watcher sees when nothing is happening."""
+    return StateSnapshot(status_text="idle")
 
 
 class TestTheRefreshSettingIsActuallyWired(unittest.TestCase):
@@ -121,7 +131,7 @@ class TestTheRefreshSettingIsActuallyWired(unittest.TestCase):
 
         def provider():
             calls.append(time.monotonic())
-            return _Snapshot()
+            return idle()
 
         view = ConsoleView(
             allowed_shapes=ALLOWED,
@@ -153,7 +163,7 @@ class TestTheRefreshSettingIsActuallyWired(unittest.TestCase):
             allowed_shapes=ALLOWED,
             on_cycle_requested=lambda request: None,
             on_close=lambda: None,
-            snapshot_provider=_Snapshot,
+            snapshot_provider=idle,
             refresh_ms=5000,
         )
         thread = threading.Thread(target=view._watch_status, daemon=True)
@@ -172,7 +182,7 @@ class TestTheRefreshSettingIsActuallyWired(unittest.TestCase):
             allowed_shapes=ALLOWED,
             on_cycle_requested=lambda request: None,
             on_close=lambda: None,
-            snapshot_provider=_Snapshot,
+            snapshot_provider=idle,
             refresh_ms=0,
         )
         self.assertGreaterEqual(view._poll_s, 0.02)

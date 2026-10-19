@@ -23,4 +23,4 @@ def sheet_brightness(path: Path) -> float:
     image = cv2.imread(str(path), cv2.IMREAD_REDUCED_GRAYSCALE_4)
     if image is None:
         return 0.0
-    return float(np.percentile(image, 95))
+    return float(np.percentile(np.asarray(image, dtype=np.float64), 95))

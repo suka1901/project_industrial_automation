@@ -12,6 +12,7 @@ Course: INA700 - AI-based pick and place
 
 import sys
 import unittest
+from typing import Any
 from pathlib import Path
 
 import cv2
@@ -34,16 +35,16 @@ def star(dark_on_light=True, points=5, speck=None, speck_radius=5):
     glare a lamp actually leaves on a glossy object.
     """
     paper, ink = (235, 40) if dark_on_light else (40, 235)
-    img = np.full((SIZE, SIZE, 3), paper, np.uint8)
+    img: Any = np.full((SIZE, SIZE, 3), paper, np.uint8)
     pts = []
     for k in range(2 * points):
         radius = 60.0 if k % 2 == 0 else 27.0
         angle = k * np.pi / points
         pts.append((CENTRE + radius * np.cos(angle),
                     CENTRE + radius * np.sin(angle)))
-    cv2.fillPoly(img, [np.array(pts).round().astype(np.int32)], (ink,) * 3)
+    cv2.fillPoly(img, [np.array(pts).round().astype(np.int32)], (ink, ink, ink))
     if speck is not None:
-        cv2.circle(img, (CENTRE, CENTRE), speck_radius, (speck,) * 3, -1)
+        cv2.circle(img, (CENTRE, CENTRE), speck_radius, (speck, speck, speck), -1)
     return img
 
 
@@ -106,6 +107,7 @@ class TestOnePixelCannotInvertTheMask(unittest.TestCase):
             radii = resample_radial([(math.atan2(y - cy, x - cx),
                                       math.hypot(x - cx, y - cy))
                                      for x, y in outline])
+            assert radii is not None, "the outline gave no radial signature"
             return harmonic_orientation(radii, 5)[1]
 
         clean = confidence(star(dark_on_light=True))

@@ -52,7 +52,7 @@ class Camera(FrameSource):
         """Find the camera, apply settings and start grabbing."""
         # Imported lazily so the rest of the project runs on a laptop without
         # the Basler SDK installed.
-        from pypylon import pylon
+        from pypylon import pylon  # pyright: ignore[reportMissingImports]
 
         factory = pylon.TlFactory.GetInstance()
 
@@ -153,7 +153,8 @@ class Camera(FrameSource):
         height = self._node_value(camera, "Height")
         width_max = self._node_max(camera, "Width")
         height_max = self._node_max(camera, "Height")
-        if None in (width, height, width_max, height_max):
+        if (width is None or height is None
+                or width_max is None or height_max is None):
             return
         if width < width_max or height < height_max:
             log.warning("The camera is still cropped to %d x %d of a possible "
@@ -176,7 +177,7 @@ class Camera(FrameSource):
 
     def read(self) -> Optional[Frame]:
         """Grab the newest image, or return None if the grab timed out."""
-        from pypylon import pylon
+        from pypylon import pylon  # pyright: ignore[reportMissingImports]
 
         camera = self._camera
         converter = self._converter

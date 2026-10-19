@@ -163,7 +163,7 @@ def clean_mask(mask: Any) -> Any:
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-    count, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, 8)
+    count, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
     if count <= 1:
         return mask
 

@@ -63,6 +63,7 @@ class TestMappingWorker(unittest.TestCase):
             self.results.put(make_result(sequence))
             self.worker.step()
         newest = LatestResultHolder(self.scenes)()
+        assert newest is not None, "the holder came back empty"
         self.assertEqual(newest.frame_sequence, 3)
 
 

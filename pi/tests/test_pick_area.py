@@ -88,7 +88,9 @@ class TestItAgreesWithTheRobotsFence(unittest.TestCase):
     def _robot_constant(self, name):
         import re
         text = (self.ROOT / "robot" / "StationData.mod").read_text(encoding="utf-8")
-        return float(re.search(rf"CONST\s+num\s+{name}\s*:=\s*([-\d.]+)", text).group(1))
+        found = re.search(rf"CONST\s+num\s+{name}\s*:=\s*([-\d.]+)", text)
+        assert found is not None, f"{name} is not declared in StationData.mod"
+        return float(found.group(1))
 
     def _config(self):
         from infrastructure.config_loader import load_config

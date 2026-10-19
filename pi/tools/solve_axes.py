@@ -77,7 +77,7 @@ def candidates(reported: Tuple[float, float], centre: Tuple[float, float],
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--true", dest="truth", nargs=2, type=float, required=True,
                         metavar=("X", "Y"), help="measured from the origin corner")
     parser.add_argument("--reported", nargs=2, type=float, required=True,
@@ -88,7 +88,8 @@ def main() -> int:
     from infrastructure.config_loader import load_config
     config = load_config(BASE_DIR / args.config)
     aruco = config.get("aruco", {})
-    centre = tuple(float(v) for v in aruco.get("marker_centre_xy_mm", (0.0, 0.0)))
+    marker = aruco.get("marker_centre_xy_mm", (0.0, 0.0))
+    centre = (float(marker[0]), float(marker[1]))
     current_angle = float(aruco.get("marker_angle_deg", 0.0))
     current_flip = bool(aruco.get("y_axis_flipped", False))
 
