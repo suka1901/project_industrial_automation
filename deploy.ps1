@@ -5,9 +5,9 @@
 #   .\deploy.ps1 -WithCamera       # also runs the camera and marker checks there
 #   .\deploy.ps1 -SkipBuild        # push the bundle already built
 #
-# Everything is fixed on this PC and shipped; the Pi only runs what arrives.
+# Everything is fixed on PC and shipped; the Pi only runs what arrives.
 # The verification matters more than the copying: an unpack that did not
-# overwrite leaves the Pi running last week's calibration, and nothing about it
+# overwrite leaves the Pi running last calibration, and nothing about it
 # looks wrong until the robot moves.
 #
 # Author: Suraj Karki
