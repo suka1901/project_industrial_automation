@@ -45,10 +45,28 @@ class SharedState:
 
     def set_preview(self, image, detections: Sequence[Detection],
                     sequence: int) -> None:
-        """Publish the newest frame together with what was found in it."""
+        """Publish a frame together with what inference found in it."""
         self._replace(preview=Preview(image=image,
                                       detections=tuple(detections),
-                                      sequence=sequence))
+                                      sequence=sequence,
+                                      detections_sequence=sequence))
+
+    def set_preview_image(self, image, sequence: int) -> None:
+        """Publish a newer frame, keeping the boxes already measured.
+
+        This is what makes the window live. The image arrives from the capture
+        thread ten to fifteen times a second, where inference manages two or
+        three, and a preview that waited for inference looked like a system
+        that had frozen - which during a demonstration is what people conclude.
+        """
+        with self._lock:
+            previous = self._snapshot.preview
+            self._replace(preview=Preview(
+                image=image,
+                detections=previous.detections if previous else (),
+                sequence=sequence,
+                detections_sequence=previous.detections_sequence if previous else 0,
+            ))
 
     def set_status(self, text: str) -> None:
         self._replace(status_text=text)

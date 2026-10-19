@@ -89,3 +89,43 @@ class TestCaptureRate(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheCapturePublishesThePicture(unittest.TestCase):
+    """Capture feeds the window directly, so it moves at the capture rate."""
+
+    def _frame(self, sequence):
+        from domain.models import Frame
+        return Frame(image=f"image-{sequence}", sequence=sequence, captured_at=0.0)
+
+    def _worker(self, state):
+        import queue
+        import threading
+        from infrastructure.runtime import CaptureWorker
+
+        frames = []
+
+        class Source:
+            def open(self): pass
+            def close(self): pass
+            def read(inner):
+                frames.append(len(frames) + 1)
+                return self._frame(len(frames))
+
+        return CaptureWorker(threading.Event(), Source(), queue.Queue(maxsize=2),
+                             max_fps=0.0, state=state)
+
+    def test_each_grab_reaches_the_window(self):
+        from application.shared_state import SharedState
+        state = SharedState()
+        worker = self._worker(state)
+        worker.step()
+        worker.step()
+        preview = state.snapshot().preview
+        self.assertEqual(preview.image, "image-2")
+        self.assertEqual(preview.sequence, 2)
+
+    def test_it_works_without_a_state_at_all(self):
+        """smoke_test builds this worker with no window to feed."""
+        worker = self._worker(None)
+        worker.step()          # must not raise

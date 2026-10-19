@@ -152,16 +152,24 @@ class CycleReport:
 
 @dataclass(frozen=True)
 class Preview:
-    """One frame and the detections found in it, kept together.
+    """What the window draws: a frame, and the boxes to draw on it.
 
-    Bundling them means the GUI cannot draw one frame's boxes over another
-    frame's image, which is what happens when they are stored separately and
-    updated a moment apart.
+    The image is refreshed by the CAPTURE thread, at ten to fifteen frames a
+    second; the boxes come from inference, which manages two or three. So the
+    two are deliberately NOT the same age, and `detections_sequence` says
+    which frame the boxes were measured in - the difference is how stale the
+    overlay is.
+
+    They still travel as one value, so the window can never draw half of one
+    update and half of the next. What it cannot do is pretend the boxes were
+    measured in the frame they are drawn over: on a still table they match,
+    and while the arm is sweeping through they visibly do not.
     """
 
     image: Any
     detections: Sequence[Detection] = field(default_factory=tuple)
     sequence: int = 0
+    detections_sequence: int = 0
 
 
 @dataclass(frozen=True)

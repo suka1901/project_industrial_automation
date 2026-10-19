@@ -31,6 +31,7 @@ class TkView(View):
         snapshot_provider: Callable[[], StateSnapshot],
         refresh_ms: int = 100,
         budget_ms: float = 3000.0,
+        preview_max_width: int = 1000,
         has_stopped: Optional[Callable[[], bool]] = None,
     ) -> None:
         self._allowed_shapes = list(allowed_shapes)
@@ -38,6 +39,11 @@ class TkView(View):
         self._on_close = on_close
         self._snapshot_provider = snapshot_provider
         self._refresh_ms = refresh_ms
+        # Rescaling a five megapixel frame is the window's whole cost, and on
+        # the Pi it competes with the model for the same four cores. Past
+        # about this width the operator learns nothing more from a bigger
+        # picture, so it is the first thing to lower when the Pi is busy.
+        self._preview_max_width = preview_max_width
         self._budget_ms = budget_ms
         # A worker that dies stops the whole application. Without this the
         # window stays up looking healthy and every cycle silently fails.
@@ -148,9 +154,7 @@ class TkView(View):
 
     PREVIEW_WIDTH = 640          # fallback only, before the window is mapped
     PREVIEW_MIN_WIDTH = 320      # below this the boxes are unreadable anyway
-    # Rendering scales with the pixels drawn, and past about this width the
-    # operator learns nothing more from a bigger picture. Maximising the
-    # window should not quietly quadruple the cost of every frame.
+    # Fallback when no width is configured; gui.preview_max_width overrides it.
     PREVIEW_MAX_WIDTH = 1000
     BOX_COLOUR = (0, 200, 255)   # BGR: amber, readable on both paper and table
 
@@ -177,7 +181,7 @@ class TkView(View):
         # to draw on it costs 15 MB and a rectangle drawn at 2448 px wide is
         # thrown away by the resize anyway.
         height, width = preview.image.shape[:2]
-        available_w = min(self.PREVIEW_MAX_WIDTH,
+        available_w = min(self._preview_max_width,
                           max(self.PREVIEW_MIN_WIDTH, self._preview.winfo_width()))
         available_h = max(self.PREVIEW_MIN_WIDTH, self._preview.winfo_height())
         if self._preview.winfo_width() <= 1:              # not yet mapped

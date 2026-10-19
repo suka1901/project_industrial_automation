@@ -22,18 +22,12 @@ Author: Suraj Karki · Course: INA700 — AI-based pick and place
 | 4 | robot + PC | `wobj2`, rotation sense, slot angles | a square at 45° seats straight |
 | 5 | PC → Pi | one command deploys and verifies | hashes match, preflight passes |
 | 6 | Pi | run it | a full cycle |
-| 7 | — | rehearse, then hand in | the zip exists |
-
-**Take with you:** the PC, the Pi and its power supply, the Basler and its USB
-cable, an Ethernet cable for the robot network, the printed A3 marker sheet
-(`docs/marker_sheet_a3.pdf`, printed at 100% — the bar along the bottom must
-measure 100.0 mm), the three objects, and the pointer tool.
 
 **Two rules that save the session**
 
 1. **Calibrate with the camera here, then move only the cable to the Pi.**
    Position is re-solved from the marker every frame, so swapping USB costs
-   nothing. A bumped mount sends you back to step 2.
+   nothing. **DO NOT MOVE THE CAMERA ITSELF**
 2. **Measured numbers go in `pi/config/config.yaml`.** `config/profiles/pi.yaml`
    only overrides the detector and the view. Anything measured that is put in a
    profile, the other machine never sees.
@@ -330,6 +324,15 @@ says `detector: yolo`, which the Pi cannot run. Extra arguments pass through, so
    slot, turned by `rz`. The status bar says `the robot is placing the square`.
 4. `status` in the console view lists what the camera sees right now, with X, Y,
    Rz and the fit per object. `quit` shuts down cleanly.
+
+The picture itself refreshes at the capture rate, so it stays live; the boxes
+on it come from inference and are up to half a second behind. On a still table
+you cannot tell. While the arm sweeps through the frame you can, and that is
+the overlay being honest about its age rather than a fault.
+
+If the window feels heavy on the Pi, `gui.preview_max_width` is the knob —
+640 there against 1000 on the PC, because rescaling the frame is what the
+window spends its cores on.
 
 With the window up, the launching terminal also carries the log, so type into a
 second terminal through the pipe — or set `logging: console_level: WARNING` in

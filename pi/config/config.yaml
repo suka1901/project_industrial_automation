@@ -14,7 +14,7 @@ shapes:
 
 camera:
   kind: basler           # synthetic | file | basler
-  fps: 10.0              # kind: synthetic - blank frames, no hardware needed
+  fps: 8.0              # kind: synthetic - blank frames, no hardware needed
   # kind: file
   directory: ../model/dataset/samples
   loop: true
@@ -311,6 +311,11 @@ gui:
   #           there with "no display name and no $DISPLAY".
   kind: tk
   refresh_ms: 100
+  # The widest the live picture is drawn. Rescaling a five megapixel frame is
+  # the window's whole cost, and on the Pi it competes with the model for the
+  # same four cores - so this is the first thing to lower when the Pi is busy.
+  # Past about 1000 px the operator learns nothing more from a bigger picture.
+  preview_max_width: 1000
   # Type commands in the terminal that launched the window. Ignored when
   # kind is console, which already owns its terminal. Tk has to hold the main
   # thread, so this reads stdin on a thread of its own.

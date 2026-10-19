@@ -78,3 +78,51 @@ class TestAngleConfidenceText(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheLivePreview(unittest.TestCase):
+    """The window draws at the CAPTURE rate, not the inference rate.
+
+    A picture that only moved when the model finished - two or three times a
+    second - read as a system that had frozen, which during a demonstration is
+    what people conclude. So capture refreshes the image and the last boxes
+    are kept, with the frame they were measured in travelling alongside.
+    """
+
+    def test_inference_publishes_frame_and_boxes_together(self):
+        state = SharedState()
+        state.set_preview("frame-3", [detection()], sequence=3)
+        preview = state.snapshot().preview
+        self.assertEqual(preview.sequence, 3)
+        self.assertEqual(preview.detections_sequence, 3)
+
+    def test_capture_refreshes_the_image_and_keeps_the_boxes(self):
+        state = SharedState()
+        state.set_preview("frame-3", [detection()], sequence=3)
+        state.set_preview_image("frame-9", sequence=9)
+        preview = state.snapshot().preview
+        self.assertEqual(preview.image, "frame-9")
+        self.assertEqual(len(preview.detections), 1)
+
+    def test_the_overlay_says_how_stale_it_is(self):
+        state = SharedState()
+        state.set_preview("frame-3", [detection()], sequence=3)
+        state.set_preview_image("frame-9", sequence=9)
+        preview = state.snapshot().preview
+        self.assertEqual(preview.sequence - preview.detections_sequence, 6)
+
+    def test_a_frame_before_any_inference_has_no_boxes(self):
+        state = SharedState()
+        state.set_preview_image("frame-1", sequence=1)
+        preview = state.snapshot().preview
+        self.assertEqual(preview.detections, ())
+        self.assertEqual(preview.image, "frame-1")
+
+    def test_the_next_inference_catches_the_overlay_up(self):
+        state = SharedState()
+        state.set_preview("frame-3", [detection()], sequence=3)
+        state.set_preview_image("frame-9", sequence=9)
+        state.set_preview("frame-10", [detection(), detection()], sequence=10)
+        preview = state.snapshot().preview
+        self.assertEqual(preview.sequence, preview.detections_sequence)
+        self.assertEqual(len(preview.detections), 2)

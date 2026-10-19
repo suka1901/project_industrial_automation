@@ -68,15 +68,19 @@ class Worker(threading.Thread):
 
 
 class CaptureWorker(Worker):
-    """Thread 1 - keeps the newest camera frame available, nothing else."""
+    """Thread 1 - keeps the newest camera frame available, and shows it."""
 
     def __init__(self, shutdown: threading.Event, source: FrameSource,
                  output: "queue.Queue[Frame]", max_fps: float = 10.0,
                  tap_path: Optional[str] = None,
-                 tap_interval_s: float = 0.5) -> None:
+                 tap_interval_s: float = 0.5,
+                 state: Optional[SharedState] = None) -> None:
         super().__init__("capture", shutdown)
         self._source = source
         self._output = output
+        # The window draws from here rather than from inference: a picture
+        # that only moved when the model finished looked frozen.
+        self._state = state
         # The camera can only be opened once, so a calibration tool that needs
         # frames while this is running reads them from here instead.
         self._tap_path = tap_path
@@ -108,6 +112,8 @@ class CaptureWorker(Worker):
             return
         # Bounded queue: drop the stale frame rather than grow memory.
         put_newest(self._output, frame)
+        if self._state is not None:
+            self._state.set_preview_image(frame.image, frame.sequence)
         self._write_tap(frame)
 
     def _write_tap(self, frame: Frame) -> None:

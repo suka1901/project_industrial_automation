@@ -104,7 +104,8 @@ def main() -> int:
                                  max_fps=config["camera"].get("capture_fps", 10.0),
                                  tap_path=config["camera"].get("frame_tap"),
                                  tap_interval_s=config["camera"].get(
-                                     "frame_tap_interval_s", 0.5)))
+                                     "frame_tap_interval_s", 0.5),
+                                 state=state))
     supervisor.add(InferenceWorker(shutdown, pipeline, frames, results, state))
     supervisor.add(MappingWorker(shutdown, coordinates, results, scenes, state))
     supervisor.add(ConnectionWorker(shutdown, transport, state, MessageCodec().encode_quit()))
@@ -120,7 +121,7 @@ def main() -> int:
         from adapters.gui.console_view import ConsoleView
         view_class = ConsoleView
 
-    view = view_class(
+    view_options = dict(
         allowed_shapes=container.shapes,
         on_cycle_requested=requests.put,     # queue is the thread-safe hand-off
         on_close=shutdown.set,
@@ -129,6 +130,12 @@ def main() -> int:
         budget_ms=config["vision"].get("inference_budget_ms", 3000.0),
         has_stopped=shutdown.is_set,
     )
+    if view_class is TkView:
+        # Only the window draws a picture; the console has none to size.
+        view_options["preview_max_width"] = config.get("gui", {}).get(
+            "preview_max_width", 1000)
+
+    view = view_class(**view_options)
 
     # Command sources run beside the view, not instead of it. Tk owns the
     # main thread, so the terminal prompt cannot be a view of its own - as a
