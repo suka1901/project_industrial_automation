@@ -156,6 +156,23 @@ a corner.**
 | Y mirrored | `aruco.y_axis_flipped: true` |
 | centre good, corners out | lens distortion — live with it |
 
+**Do not guess at the turn and the mirror.** There are eight combinations and
+each wrong one costs an edit, a deploy and a restart. Measure one object from
+the origin corner, read what the GUI says for it, and ask:
+
+```bash
+python tools/solve_axes.py --true 60 80 --reported 278.5 121.5
+```
+
+It prints what every setting would read and names the one that fits. Use an
+object well away from the marker's centre — near the middle, several settings
+agree, and the tool says so when they do.
+
+If nothing fits within a few millimetres, the axes are not merely turned: that
+is the signature of `wobj1` taught with +X along the long edge, and then
+`sheet.span_xy_mm`, `marker_centre_xy_mm` and `SHEET_SPAN_X/Y` in
+`StationData.mod` all have to swap with it.
+
 ---
 
 ## 4. The jig: `wobj2`, rotation sense, slot angles
