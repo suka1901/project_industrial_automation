@@ -282,8 +282,10 @@ def gradient_mask(crop: Any, threshold: int = 0) -> Any:
     # known and small share of the crop, so naming that share directly finds
     # it. On the white square that the brightness route reads as paper, this
     # takes the fit from 0.26 to 0.94.
-    threshold = float(np.percentile(magnitude, EDGE_PERCENTILE))
-    edges = ((magnitude >= threshold) * 255).astype("uint8")
+    # Not `threshold`: that name is this function's own parameter, an int
+    # grey level, and a gradient magnitude is neither an int nor a grey level.
+    cut = float(np.percentile(magnitude, EDGE_PERCENTILE))
+    edges = ((magnitude >= cut) * 255).astype("uint8")
     return clean_mask(_fill_outline(edges))
 
 

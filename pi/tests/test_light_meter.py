@@ -65,11 +65,15 @@ class TestTheCropItMeasures(unittest.TestCase):
     def test_the_padding_is_included(self):
         image = np.zeros((200, 200, 3), np.uint8)
         crop = crop_of(image, BoundingBox(50.0, 60.0, 90.0, 100.0))
+        self.assertIsNotNone(crop)
+        assert crop is not None                  # and for the type checker
         self.assertEqual(crop.shape[:2], (48, 48))        # 40 plus 4 each side
 
     def test_it_stops_at_the_frame_edge(self):
         image = np.zeros((100, 100, 3), np.uint8)
         crop = crop_of(image, BoundingBox(0.0, 0.0, 100.0, 100.0))
+        self.assertIsNotNone(crop)
+        assert crop is not None
         self.assertEqual(crop.shape[:2], (100, 100))
 
     def test_there_is_nothing_to_measure_without_a_box(self):
