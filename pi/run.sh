@@ -4,6 +4,7 @@
 #   ./run.sh              the window: live view, dropdowns, Send pick to robot
 #   ./run.sh console      the terminal view, for SSH - no display needed
 #   ./run.sh preflight    is this Pi ready
+#   ./run.sh light        live lighting meter - aim the lamp by numbers
 #   ./run.sh bench        how fast the model runs HERE
 #   ./run.sh check        the model against the held-out photos
 
@@ -33,11 +34,6 @@ hold_terminal_open() {
     esac
 }
 trap hold_terminal_open EXIT
-
-# The Pi's packages live in a virtual environment. This does NOT activate it -
-# an environment that turns itself on is one you stop thinking about, and the
-# day it is the wrong one you have no idea why. It just refuses, with the line
-# to paste, instead of letting python3 fail later as ModuleNotFoundError: cv2.
 if [ -z "${VIRTUAL_ENV:-}" ] && [ -f "$HOME/venv/bin/activate" ]; then
     echo "The virtual environment is not active. Run this first:" >&2
     echo "" >&2
@@ -64,6 +60,9 @@ case "$command" in
     preflight)
         python3 tools/preflight.py --config "$CONSOLE" --length 100 "$@"
         ;;
+    light)
+        python3 tools/light_meter.py --config "$CONSOLE" "$@"
+        ;;
     bench)
         python3 tools/benchmark.py --config "$CONSOLE" --count 20 "$@"
         ;;
@@ -71,11 +70,11 @@ case "$command" in
         python3 tools/offline_check.py --config "$CONSOLE" "$@"
         ;;
     help|--help|-h)
-        sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
         ;;
     *)
         echo "Unknown command: $command" >&2
-        sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' >&2
+        sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' >&2
         exit 1
         ;;
 esac

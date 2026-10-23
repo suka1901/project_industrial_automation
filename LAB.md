@@ -307,6 +307,7 @@ terminal you are typing in, and closing the window closes that terminal.
 | `./run.sh` | the window, with the live view and the status bar |
 | `./run.sh console` | the same system with a `pick>` prompt; works over plain SSH, where Tk cannot open a display |
 | `./run.sh check` | the model against the held-out photos, on the Pi |
+| `./run.sh light` | the sheet's brightness and every object's contrast, live — move the lamp until the number stops changing for the better |
 
 The wrapper carries `--config config/profiles/pi.yaml` for you; the base config
 says `detector: yolo`, which the Pi cannot run. Extra arguments pass through, so
@@ -408,6 +409,7 @@ into `robot/` so the repo matches what the Pack-and-Go captured.
 | the terminal closes with the window | you ran `source run.sh`. Run it as `./run.sh` — only the venv is sourced |
 | nothing rotates | the fit scores in the log — below 0.6 it is lighting, not the robot |
 | one shape is always placed at the same wrong angle | the fit score in the log for that shape. A pale object on white paper is measured from its border rather than its brightness; if the fit is still low, a side light buys more than any setting |
+| a white object is seen but never rotated | `./run.sh light`. A white square needs about 40 grey levels of contrast against the paper; it has 13 at a sheet of 100 and 34 at 150. Raise `camera.exposure_us` toward the top of the 150–245 band, then move the lamp low and to one side so the object's edge casts a shadow |
 | everything rotates the wrong way | `coordinates.angle_sign` |
 | everything off by the same angle | the slot angles, and whether they were measured with the running estimator |
 | picks land beside the object | `wobj1` and the four crosses, then the mapping gate |
