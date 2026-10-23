@@ -6,21 +6,33 @@
 #   ./run.sh preflight    is this Pi ready
 #   ./run.sh bench        how fast the model runs HERE
 #   ./run.sh check        the model against the held-out photos
-#
-# The profile is the whole point of this file. The base config.yaml says
-# detector: yolo, which loads through ultralytics, which needs torch - and
-# torch's aarch64 wheel fills the Pi's disk before it finishes installing.
-# config/profiles/pi.yaml says ncnn instead. Forgetting --config was the
-# commonest mistake at the station, and it fails in a way that reads like a
-# broken model rather than a wrong flag.
-#
-# Anything you add on the command line is passed through, and argparse takes
-# the last value, so ./run.sh preflight --no-camera overrides what is set here.
-#
-# Author: Suraj Karki
-# Course: INA700 - AI-based pick and place
+
+if [ "${BASH_SOURCE[0]:-$0}" != "$0" ]; then
+    echo "Run this as ./run.sh - do not 'source' it." >&2
+    echo "Sourced, it takes the terminal down with the window." >&2
+    return 1
+fi
+
 set -euo pipefail
 cd "$(dirname "$0")"
+
+# The terminal may have been opened only to run this - a desktop icon, or
+# "Execute" from the file manager. Such a window closes the moment the command
+# ends, which is also when the error you need to read appears. Hold it open.
+# A terminal you were already typing in has a prompt to return to, so it is
+# left alone: its parent is a shell, and a shell's command line never names
+# this script.
+hold_terminal_open() {
+    case "$(ps -o args= -p $PPID 2>/dev/null || true)" in
+        *run.sh*)
+            if [ -t 0 ]; then
+                echo ""
+                read -r -p "Finished. Press Enter to close this window. " _
+            fi
+            ;;
+    esac
+}
+trap hold_terminal_open EXIT
 
 # The Pi's packages live in a virtual environment. This does NOT activate it -
 # an environment that turns itself on is one you stop thinking about, and the
@@ -40,21 +52,23 @@ WINDOW=config/profiles/pi-gui.yaml   # the same, plus the window and the frame t
 command=${1:-start}
 shift || true
 
+# python runs as a child, never through exec: this shell has to outlive it to
+# hold the window open, and an exec'd python leaves nothing here to do that.
 case "$command" in
     start)
-        exec python3 main.py --config "$WINDOW" "$@"
+        python3 main.py --config "$WINDOW" "$@"
         ;;
     console)
-        exec python3 main.py --config "$CONSOLE" "$@"
+        python3 main.py --config "$CONSOLE" "$@"
         ;;
     preflight)
-        exec python3 tools/preflight.py --config "$CONSOLE" --length 100 "$@"
+        python3 tools/preflight.py --config "$CONSOLE" --length 100 "$@"
         ;;
     bench)
-        exec python3 tools/benchmark.py --config "$CONSOLE" --count 20 "$@"
+        python3 tools/benchmark.py --config "$CONSOLE" --count 20 "$@"
         ;;
     check)
-        exec python3 tools/offline_check.py --config "$CONSOLE" "$@"
+        python3 tools/offline_check.py --config "$CONSOLE" "$@"
         ;;
     help|--help|-h)
         sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'

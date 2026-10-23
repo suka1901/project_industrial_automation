@@ -291,6 +291,9 @@ cd ~/INA700/pi
 `run.sh` refuses with that exact line if you forget, rather than failing later
 as `ModuleNotFoundError`.
 
+Run it, do not source it: `./run.sh`. Sourced, it replaces the shell of the
+terminal you are typing in, and closing the window closes that terminal.
+
 ```bash
 ./run.sh preflight     # is this Pi ready
 ./run.sh bench         # how fast the model runs HERE
@@ -402,6 +405,7 @@ into `robot/` so the repo matches what the Pack-and-Go captured.
 | `ModuleNotFoundError` on the Pi | the venv: `source ~/venv/bin/activate` |
 | "the object is still on the board", but it was picked | the camera check after the pick. The arm should be clear at `Phome`; if it is in frame, or the scene is stale, lower `robot.verify_tolerance_mm` or set it to 0 |
 | `ModuleNotFoundError: ultralytics` | you ran `python3 main.py` instead of `./run.sh` |
+| the terminal closes with the window | you ran `source run.sh`. Run it as `./run.sh` — only the venv is sourced |
 | nothing rotates | the fit scores in the log — below 0.6 it is lighting, not the robot |
 | everything rotates the wrong way | `coordinates.angle_sign` |
 | everything off by the same angle | the slot angles, and whether they were measured with the running estimator |
