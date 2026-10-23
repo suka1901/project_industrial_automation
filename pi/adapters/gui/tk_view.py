@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional, Sequence
 
+from adapters.gui.pose_table import pose_table
 from domain.enums import Colour, Shape
 from domain.models import PickRequest, StateSnapshot
 from ports.interfaces import View
@@ -57,6 +58,7 @@ class TkView(View):
         # What is currently on screen, so an unchanged frame costs nothing.
         self._timing_text = None
         self._status_text = None
+        self._poses_text = None
         self._ticks = 0
 
         self._root = tk.Tk()
@@ -128,6 +130,14 @@ class TkView(View):
         self._preview = ttk.Label(body, text="waiting for the first frame",
                                   anchor="center", relief="sunken", width=40)
         self._preview.pack(fill="both", expand=True)
+
+        # The same poses the overlay draws, as figures. The picture is what
+        # catches a misread; the figures are what can be read out loud.
+        # Fixed width, or the columns move as the numbers change.
+        self._poses = ttk.Label(body, font="TkFixedFont", anchor="w",
+                                justify="left", relief="sunken", padding=4,
+                                text=pose_table(()))
+        self._poses.pack(fill="x", pady=(6, 0))
 
         self._status_label = ttk.Label(self._root, text="starting up",
                                        relief="sunken", anchor="w", padding=4)
@@ -226,6 +236,7 @@ class TkView(View):
         self._set_text(self._status_label, "_status_text",
                        f"[{'connected' if snapshot.connected else 'no robot'}] "
                        f"cycle {snapshot.cycle_index} - {snapshot.status_text}")
+        self._set_text(self._poses, "_poses_text", pose_table(snapshot.detections))
 
         try:
             self._render_preview(snapshot.preview)
