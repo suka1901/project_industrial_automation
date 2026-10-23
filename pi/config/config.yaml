@@ -20,34 +20,20 @@ camera:
   loop: true
   # kind: basler
   serial_number: null    # null = first camera found 
-  # Raised from 3000 on 2026-09-16. At 3000 the sheet read 53/255 against a
-  # target of 180-210 - roughly 3.7x too dark, and contrast scales with
-  # signal, so every object sat that much closer to the paper. The photos the
-  # model was trained on had the sheet at 144-153.
-  # At 11000 us the camera still runs about 89 fps against a capture_fps of
-  # 10, so the exposure costs nothing. Check with preflight and adjust: the
-  # response is not perfectly linear at the ends.
-  exposure_us: 11000
+  # Raised from 3000 on 2026-09-16. 
+  exposure_us: 22000
   gain: 0.0              # lowest noise; raise exposure before ever raising this
   #The camera can deliver 71.8 fps, but inference does about 2.4, so 
-  #anything above a few fps is grabbed and dropped unread - 15 MB a frame of pure waste, and a  
-  # pinned core that starves the GUI. 10 keeps the preview lively without competing.
+  #anything above a few fps is grabbed and dropped unread.
   capture_fps: 15.0
-  # Where to drop the newest frame for another process to read. The Basler
-  # can only be opened once, so a calibration tool cannot take its own frames
-  # while main.py is running - and slot_angles.py or aruco_check.py sometimes
-  # has to look at the table while the system is live. They read this file
-  # instead, with --camera tap.
-  # null = off, which costs nothing. Roughly 70 ms of JPEG encoding each time
-  # it fires, so leave it off for a production run.
+  # Where to drop the newest frame for another process to read: the
+  # Basler can only be opened once, so slot_angles.py and the light
+  # meter read this file with --camera tap while main.py is running.
+  # It does not change what inference sees. null = off; on, it costs
+  # about 70 ms of JPEG encoding each time it fires.
   frame_tap: null
   frame_tap_interval_s: 0.5
   timeout_ms: 5000
-  # Ask for the whole sensor on every open. The camera remembers its area of
-  # interest in its own memory, so a crop left behind in Pylon Viewer survives
-  # a power cycle and quietly narrows the field of view - and a cropped image
-  # looks exactly like a longer lens, with nothing in it saying so. Set false
-  # only to run deliberately cropped, which is faster and sees less.
   full_sensor: true
   show_window: false     # true shows the raw feed while aiming
 
@@ -62,7 +48,6 @@ detector:
   # forbidden shape is worse than missing one - the operator can simply ask
   # again. Raise this if a forbidden shape ever reaches the robot.
   confidence: 0.6
-  # Maps the model's class indices to shapes. Must match your data.yaml order.
   class_map:
     0: CIRCLE
     1: SQUARE
@@ -85,21 +70,6 @@ orientation:
   #            itself and chroma has no hue to work with
   #   edges    Canny's outline, filled - strict, but precise when it answers
   mask_candidates: [otsu, chroma, gradient, edges]
-  # Overlap with an ideal shape, 0 to 1. Measured over the labelled photos,
-  # 184 objects at five known rotations each, with the paper masks dropped:
-  #
-  #     gate   squares kept / within 2 deg     stars kept / within 2 deg
-  #     0.60      75%  /  78%                     92%  /  100%
-  #     0.85      64%  /  85%                     43%  /  100%
-  #
-  # A star is right at any gate. A square buys accuracy with coverage, and
-  # below the gate nothing is refused - the reading is taken from the
-  # candidates' consensus instead - so 0.60 keeps the most objects measured
-  # by the mask that fits them best.
-  # Which route the angle takes, not a gate - nothing is refused on it. At or
-  # above this the winning mask's own angle is used; below it, the four masks'
-  # fit-weighted consensus is used instead and the log names the reading as a
-  # guess. Measured: readings above 0.75 are reliable, ones below 0.60 are not.
   min_fit: 0.60
   good_enough_fit: 0.85  # stop trying other segmentations once this is met
   fit_step_deg: 2.0      # sweep step; a parabola refines the winner
@@ -111,29 +81,7 @@ orientation:
   # any angle would be noise, so it reports no rotation instead of guessing.
   # kind: fitted judges a reading by min_fit above instead.
   min_confidence: 0.05
-  # Grey levels of separation between the object and the paper, below which
-  # there is no outline to trace. Measured across the labelled photos:
-  #     contrast 37-120  ->  angle error 0.05-0.46 deg
-  #     contrast 16, 25  ->  angle error 2.81, 9.11 deg
-  # Both failures were WHITE objects on white paper - three or four grey
-  # levels apart, less than the sensor's noise. Otsu then returns the paper
-  # and the angle is confidently wrong. Canny and a LAB colour distance fail
-  # the same way, so this is a gate rather than a knob: a low reading means
-  # the lighting cannot show the object's edge, and the answer is a side
-  # light or a non-white sheet, not a smaller number here.
-  # kind: harmonic only. kind: fitted needs no contrast gate: the gradient and
-  # edge candidates are there precisely to measure the objects that fail it.
   min_contrast_levels: 20.0
-  # Nothing is refused on a poor fit. Every detected object is placed at the
-  # best angle that could be worked out for it: when no segmentation fits
-  # well, the candidates' fit-weighted consensus is sent rather than a zero.
-  # Being a few degrees out is a worse placement; being unrotated is a wrong
-  # one. The fit travels with each reading and the log names the guesses, so
-  # a run can still be judged afterwards.
-  #
-  # Measured over 184 labelled objects at five known rotations each:
-  # readings above 0.80 held to 0.17 deg on stars and 2 deg on squares; below
-  # 0.60 they are guesses, and are logged as such.
 
 colour:
   kind: hsv
@@ -154,24 +102,13 @@ colour:
 # --- the picking sheet ------------------------------------------------
 sheet:
   origin_xy_mm: [0.0, 0.0]
-  # +X runs along the SHORT (297 mm) edge, +Y along the long one, because
-  # that is how wobj1 was taught: X1 at the sheet corner, X2 jogged along
-  # the short edge.
   span_xy_mm: [297.0, 420.0]
-  # Must not exceed SHEET_MARGIN_MM in StationData.mod, which is 15. The
-  # robot refuses anything past its own fence with "off board", and an object
-  # offered here but refused there costs a whole attempt - then the retry
-  # reads the same scene, offers the same object, and spends the next two.
-  # The robot's fence is the authority: it is what stands between a
-  # miscalibrated camera and the fixture.
   margin_mm: 15.0
 
 aruco:
   dictionary: DICT_5X5_100
   marker_id: 0                 # null = accept any marker in view
-  marker_length_mm: 100.0      # the printed OUTER BLACK SQUARE, not the paper
-  # Half of 297 and half of 420: the centre of the sheet, which is where the
-  # marker is printed. Nothing here was measured, so nothing here can drift.
+  marker_length_mm: 100.0      # the printed OUTER BLACK SQUARE
   marker_centre_xy_mm: [148.5, 210.0]
   marker_angle_deg: 90.0       # 0 / 90 / 180 / 270 - confirm with the test above
   y_axis_flipped: false        # flip if a test pick comes out mirrored in Y
@@ -181,9 +118,13 @@ aruco:
 
 coordinates:
   mapper: aruco          # identity | aruco
-  angle_sign: -1         # image Y points down; verify once with a 45 deg test object
-                         # (with the aruco mapper the homography already handles
-                         #  position; this sign only affects the rotation)
+  # The image's v axis grows DOWNWARD, so a positive angle there turns
+  # clockwise on screen, while the robot's Rz turns anticlockwise about
+  # +Z. -1 converts the one sense into the other. It has nothing to do
+  # with which way the robot's Y points - that is the homography's job.
+  # Wrong, it turns the right amount the wrong way: 22 deg out on a
+  # square and 18 on a star, on average, and right only by luck.
+  angle_sign: 1
   angle_offset_deg: 0.0
   # The angle each shape must ARRIVE at
   # rz = slot_angle - object_angle
@@ -210,9 +151,7 @@ vision:
 
 gui:
   # tk      - a window: live preview, table, warnings. Needs a display.
-  # console - type "circle red" at the terminal. Needs no display at all,
-  #           which is what makes an SSH session on the Pi work; Tk fails
-  #           there with "no display name and no $DISPLAY".
+  # console - type "circle red" at the terminal. 
   kind: tk
   refresh_ms: 100
   # The widest the live picture is drawn. Rescaling a five megapixel frame is

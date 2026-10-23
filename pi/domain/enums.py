@@ -8,7 +8,7 @@ from enum import Enum
 
 
 class Shape(Enum):
-    """The five object shapes used in the course."""
+    """The five object shape."""
 
     CIRCLE = "CIRCLE"
     SQUARE = "SQUARE"
