@@ -26,12 +26,7 @@ camera:
   #The camera can deliver 71.8 fps, but inference does about 2.4, so 
   #anything above a few fps is grabbed and dropped unread.
   capture_fps: 15.0
-  # Where to drop the newest frame for another process to read: the
-  # Basler can only be opened once, so slot_angles.py and the light
-  # meter read this file with --camera tap while main.py is running.
-  # It does not change what inference sees. null = off; on, it costs
-  # about 70 ms of JPEG encoding each time it fires.
-  frame_tap: null
+  frame_tap: null # Optimization trcick for JPEG compression: a frame is grabbed and compressed only every N seconds, and the last-compressed frame is used for inference in between. This is a tradeoff between CPU load and latency. The camera's own buffer is 30 frames, so if the model takes 0.5 s to run, the camera can be set to 2 fps and the model will see a new frame every 0.5 s, but the camera will have dropped 7 frames in between. If the model takes 0.1 s to run, the camera can be set to 10 fps and the model will see a new frame every 0.1 s, but the camera will have dropped 4 frames in between.
   frame_tap_interval_s: 0.5
   timeout_ms: 5000
   full_sensor: true
@@ -118,13 +113,7 @@ aruco:
 
 coordinates:
   mapper: aruco          # identity | aruco
-  # The image's v axis grows DOWNWARD, so a positive angle there turns
-  # clockwise on screen, while the robot's Rz turns anticlockwise about
-  # +Z. -1 converts the one sense into the other. It has nothing to do
-  # with which way the robot's Y points - that is the homography's job.
-  # Wrong, it turns the right amount the wrong way: 22 deg out on a
-  # square and 18 on a star, on average, and right only by luck.
-  angle_sign: 1
+  angle_sign: 1         # image Y points down. change the sign if the robot's Y points down instead
   angle_offset_deg: 0.0
   # The angle each shape must ARRIVE at
   # rz = slot_angle - object_angle
@@ -139,7 +128,7 @@ robot:
   port: 5000
   accept_timeout_s: 120.0
   reply_timeout_s: 300.0
-  max_attempts: 3        # first try plus the two retries 
+  max_attempts: 3       # first try plus the two retries 
   retry_delay_s: 1.5
   # A cycle requested while the robot is not connected waits this long 
   connect_wait_s: 30.0
