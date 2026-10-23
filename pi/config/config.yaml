@@ -81,11 +81,21 @@ orientation:
   #   otsu     brightness - a dark object on white paper
   #   chroma   colour, ignoring brightness - survives shadow and glare
   #   gradient the border's step in brightness - the only one that finds a
-  #            WHITE object on white paper
+  #            WHITE object on white paper, where otsu returns the paper
+  #            itself and chroma has no hue to work with
   #   edges    Canny's outline, filled - strict, but precise when it answers
   mask_candidates: [otsu, chroma, gradient, edges]
-  # Overlap with an ideal shape, 0 to 1. Measured on the labelled photos:
-  # right answers sit above 0.75, wrong ones below 0.6.
+  # Overlap with an ideal shape, 0 to 1. Measured over the labelled photos,
+  # 184 objects at five known rotations each, with the paper masks dropped:
+  #
+  #     gate   squares kept / within 2 deg     stars kept / within 2 deg
+  #     0.60      75%  /  78%                     92%  /  100%
+  #     0.85      64%  /  85%                     43%  /  100%
+  #
+  # A star is right at any gate. A square buys accuracy with coverage, and
+  # below the gate nothing is refused - the reading is taken from the
+  # candidates' consensus instead - so 0.60 keeps the most objects measured
+  # by the mask that fits them best.
   # Which route the angle takes, not a gate - nothing is refused on it. At or
   # above this the winning mask's own angle is used; below it, the four masks'
   # fit-weighted consensus is used instead and the log names the reading as a

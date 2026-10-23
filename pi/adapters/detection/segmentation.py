@@ -17,6 +17,11 @@ from typing import Any
 # crop means the segmentation grabbed the wrong side of the threshold.
 WHOLE_CROP_FRACTION = 0.92
 
+# The share of a crop's gradient magnitudes that belong to the object's border.
+# An outline is thin: a few pixels wide round one shape in a box barely bigger
+# than it is.
+EDGE_PERCENTILE = 88.0
+
 
 def object_mask(crop: Any, threshold: int = 0) -> Any:
     """Binary mask of the object within a crop, 255 where the object is.
@@ -118,6 +123,31 @@ def contrast_levels(crop: Any, threshold: int = 0) -> float:
     if dark.size == 0 or light.size == 0:
         return 0.0
     return float(np.median(light) - np.median(dark))
+
+
+# A mask can sit below WHOLE_CROP_FRACTION and still be the paper: the hole
+# the object leaves in it is filled by clean_mask, and what remains stops a
+# little short of the corners. The border ring is what gives it away. The crop
+# is the detection box PLUS padding, so an object cannot reach the crop's edge
+# while the paper around it always does.
+#
+# Measured over the labelled photos: every mask that had found the object had
+# a border fraction of 0.00 to 0.01; every mask that had found the paper, 0.66
+# to 0.94. There is nothing in between to get wrong.
+PAPER_BORDER_FRACTION = 0.35
+
+
+def looks_like_paper(mask: Any, limit: float = PAPER_BORDER_FRACTION) -> bool:
+    """True when this mask is the sheet around the object, not the object.
+
+    Worth a test of its own because a filled rectangle fits an ideal SQUARE
+    convincingly - 0.70 and 0.63 on the two white-on-white photos, well above
+    the threshold that decides a reading can be trusted. A wrong angle that
+    arrives with a good score is the one failure the fit cannot catch by
+    itself: it is the shape of the crop being measured, not the shape of the
+    object, and the crop is a rectangle no matter how the object lies.
+    """
+    return border_fraction(mask) > limit
 
 
 def covers_whole_crop(contour_area: float, mask: Any,
@@ -241,10 +271,19 @@ def gradient_mask(crop: Any, threshold: int = 0) -> Any:
     grey = cv2.GaussianBlur(grey, (5, 5), 0)
     magnitude = cv2.magnitude(cv2.Scharr(grey, cv2.CV_32F, 1, 0),
                               cv2.Scharr(grey, cv2.CV_32F, 0, 1))
-    magnitude = cv2.GaussianBlur(magnitude, (5, 5), 0)
-    scaled = np.clip(magnitude / max(float(magnitude.max()), 1e-6) * 255.0,
-                     0, 255).astype("uint8")
-    _, edges = cv2.threshold(scaled, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    magnitude = cv2.GaussianBlur(magnitude, (7, 7), 0)
+
+    # A percentile rather than Otsu, which is what makes this route work on
+    # the object it exists for. Otsu splits the magnitudes into two groups of
+    # comparable weight; on a white object the border's step is a thin
+    # minority against a wide flat interior, so the split lands ABOVE the
+    # border and keeps only the few brightest pixels - one per cent of the
+    # crop, nothing to fill. The border of a shape inside a padded box is a
+    # known and small share of the crop, so naming that share directly finds
+    # it. On the white square that the brightness route reads as paper, this
+    # takes the fit from 0.26 to 0.94.
+    threshold = float(np.percentile(magnitude, EDGE_PERCENTILE))
+    edges = ((magnitude >= threshold) * 255).astype("uint8")
     return clean_mask(_fill_outline(edges))
 
 

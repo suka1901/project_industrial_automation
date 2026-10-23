@@ -407,6 +407,7 @@ into `robot/` so the repo matches what the Pack-and-Go captured.
 | `ModuleNotFoundError: ultralytics` | you ran `python3 main.py` instead of `./run.sh` |
 | the terminal closes with the window | you ran `source run.sh`. Run it as `./run.sh` — only the venv is sourced |
 | nothing rotates | the fit scores in the log — below 0.6 it is lighting, not the robot |
+| one shape is always placed at the same wrong angle | the fit score in the log for that shape. A pale object on white paper is measured from its border rather than its brightness; if the fit is still low, a side light buys more than any setting |
 | everything rotates the wrong way | `coordinates.angle_sign` |
 | everything off by the same angle | the slot angles, and whether they were measured with the running estimator |
 | picks land beside the object | `wobj1` and the four crosses, then the mapping gate |

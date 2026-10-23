@@ -11,6 +11,7 @@ Course: INA700 - AI-based pick and place
 
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import cv2
@@ -20,8 +21,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from domain.enums import Colour, Shape
 from domain.models import BoundingBox, Detection, Frame
+from adapters.detection import fitted_orientation_estimator as module
 from adapters.detection.fitted_orientation_estimator import (
-    FittedOrientationEstimator, area_harmonic_angle, consensus_angle)
+    CANDIDATE_MASKS, FittedOrientationEstimator, area_harmonic_angle,
+    consensus_angle)
 from adapters.detection.shape_fit import fit_shape, ideal_shape
 
 PAPER = 230
@@ -165,6 +168,54 @@ class TestThePieces(unittest.TestCase):
 
     def test_area_harmonic_needs_enough_pixels(self):
         self.assertIsNone(area_harmonic_angle(np.zeros((40, 40), np.uint8), 4))
+
+
+class TestAMaskOfThePaperIsNeverMeasured(unittest.TestCase):
+    """The failure that put a confident wrong angle on the wire.
+
+    Otsu has to decide which side of its threshold is the object, and on a
+    pale one it takes the paper. Filled in where the object sat, the paper is
+    a rectangle - and a rectangle fits an ideal SQUARE at about 0.70, above
+    the score at which a reading is acted on. The angle then belongs to the
+    crop, which is axis-aligned however the object lies, so the robot is told
+    0 degrees with a good score behind it. Measured on two of the labelled
+    photos: 0.70 and 0.63, both believed, both about 45 degrees out.
+
+    The paper is recognised by its border: the crop is the detection box plus
+    padding, so nothing but the paper can touch the edge.
+    """
+
+    @staticmethod
+    def _paper(crop):
+        """A mask of the sheet that stops short of filling the crop."""
+        height, width = crop.shape[:2]
+        mask = np.zeros((height, width), np.uint8)
+        mask[:, :int(width * 0.85)] = 255
+        return mask
+
+    def test_the_paper_is_passed_over_in_favour_of_the_object(self):
+        frame, detection = scene(Shape.SQUARE, 30.0)
+        patched = dict(CANDIDATE_MASKS, paper=self._paper)
+        with mock.patch.object(module, "CANDIDATE_MASKS", patched):
+            estimator = FittedOrientationEstimator(
+                padding_px=4, candidates=["paper", "otsu"])
+            measured = estimator.measure(frame, detection)
+
+        # The object is at 30 deg; the crop, which is what the paper mask
+        # measures, is at 0 - and on a square 0 and 30 are 30 apart.
+        self.assertLess(abs(difference(measured.angle_deg, -30.0, 90.0)), 3.0)
+
+    def test_the_paper_alone_leaves_nothing_to_report(self):
+        frame, detection = scene(Shape.SQUARE, 30.0)
+        patched = dict(CANDIDATE_MASKS, paper=self._paper)
+        with mock.patch.object(module, "CANDIDATE_MASKS", patched):
+            estimator = FittedOrientationEstimator(
+                padding_px=4, candidates=["paper"])
+            measured = estimator.measure(frame, detection)
+
+        # No confidence, rather than the crop's angle wearing the paper's fit.
+        self.assertEqual(measured.confidence, 0.0)
+
 
 
 if __name__ == "__main__":

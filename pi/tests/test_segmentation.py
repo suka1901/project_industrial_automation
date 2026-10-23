@@ -20,7 +20,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from adapters.detection.segmentation import (covers_whole_crop, object_mask,
+from adapters.detection.segmentation import (covers_whole_crop, gradient_mask,
+                                             looks_like_paper, object_mask,
                                              plausibility)
 
 SIZE = 140
@@ -134,6 +135,54 @@ class TestPlausibility(unittest.TestCase):
                                        cv2.CHAIN_APPROX_NONE)
         area = cv2.contourArea(max(contours, key=cv2.contourArea))
         self.assertFalse(covers_whole_crop(area, mask))
+
+
+class TestTellingThePaperFromTheObject(unittest.TestCase):
+    """The whole-crop test one size smaller, and the one that was missing.
+
+    A mask of the paper does not always reach the corners: clean_mask fills
+    the hole the object leaves in it, and what remains can sit comfortably
+    under WHOLE_CROP_FRACTION. It is still a rectangle, and a rectangle fits
+    an ideal SQUARE well enough to be believed - which is how a wrong angle
+    reached the robot with a good score behind it. The crop is the detection
+    box plus padding, so only the paper can touch its border.
+    """
+
+    def test_a_mask_that_reaches_every_edge_is_paper(self):
+        paper = np.full((SIZE, SIZE), 255, np.uint8)
+        paper[30:SIZE - 30, 30:SIZE - 30] = 0      # the object's own hole
+        self.assertTrue(looks_like_paper(paper))
+
+    def test_it_is_still_paper_once_the_hole_is_filled(self):
+        paper = np.full((SIZE, SIZE), 255, np.uint8)
+        self.assertTrue(looks_like_paper(paper))
+
+    def test_an_object_inside_its_padding_is_not(self):
+        self.assertFalse(looks_like_paper(object_mask(star())))
+
+    def test_nor_is_a_square_that_nearly_fills_its_box(self):
+        mask = np.zeros((SIZE, SIZE), np.uint8)
+        mask[6:SIZE - 6, 6:SIZE - 6] = 255
+        self.assertFalse(looks_like_paper(mask))
+
+
+class TestTheGradientRouteFindsAPaleObject(unittest.TestCase):
+    """The route that has to answer when brightness cannot.
+
+    Thresholding the gradient with Otsu split the magnitudes into halves of
+    similar weight, which on a pale object kept only the brightest fraction
+    of the border - too little to fill. A percentile names the border's own
+    share of the crop instead.
+    """
+
+    def test_a_pale_square_is_found_by_its_border(self):
+        crop = np.full((SIZE, SIZE, 3), 200, np.uint8)
+        crop[20:SIZE - 20, 20:SIZE - 20] = 215     # 15 grey levels, no more
+        mask = gradient_mask(crop)
+        covered = float(np.count_nonzero(mask)) / float(mask.size)
+        self.assertGreater(covered, 0.2)
+        self.assertLess(covered, 0.9)
+        self.assertFalse(looks_like_paper(mask))
 
 
 if __name__ == "__main__":

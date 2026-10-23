@@ -36,7 +36,8 @@ import math
 from typing import Any, List, Optional, Sequence, Tuple
 
 from domain.models import Detection, Frame, OutlineMeasurement, PixelPoint
-from adapters.detection.segmentation import (CANDIDATE_MASKS, covers_whole_crop,
+from adapters.detection.segmentation import (CANDIDATE_MASKS, border_fraction,
+                                             covers_whole_crop, looks_like_paper,
                                              otsu_mask)
 from adapters.detection.shape_fit import fit_shape
 from ports.interfaces import OrientationEstimator
@@ -165,6 +166,16 @@ class FittedOrientationEstimator(OrientationEstimator):
             # A mask that fills the crop is the paper, not the object: the box
             # has padding round it, so nothing real reaches the corners.
             if area < 100.0 or covers_whole_crop(area, mask):
+                continue
+            # The same mistake one size smaller, and the dangerous one: the
+            # paper with the object's hole filled in stops short of the
+            # corners, so it passes the test above, and then fits an ideal
+            # square well enough to be believed. What it measures is the angle
+            # of the crop. Dropping it here is what leaves the gradient route,
+            # which has no opinion about which side is brighter, to answer.
+            if looks_like_paper(mask):
+                log.debug("%s found the paper rather than the object "
+                          "(border %.2f) - not used", name, border_fraction(mask))
                 continue
 
             fitted = fit_shape(mask, order, step_deg=self._step_deg)
