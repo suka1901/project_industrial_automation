@@ -1,0 +1,212 @@
+BARE RASPBERRY PI TO A RUNNING CELL
+===================================
+
+Everything from a freshly flashed card to "./run.sh preflight" passing.
+Done once. Afterwards the only thing you repeat is activating the virtual
+environment in each new terminal, and deploying a new ina700-pi.tar.gz when
+the code changes.
+
+Three things live on the Pi, deliberately separate, because only one of them
+changes often:
+
+    ~/venv                  the virtual environment   built on the Pi, once
+    the libraries in it     pip, online or from zip    once
+    ~/INA700                your code and model        every change
+
+A venv cannot be copied from the PC. It hardcodes paths to the interpreter it
+was built against, and its compiled parts - numpy, OpenCV, ncnn, pypylon - are
+binaries for one CPU. That is why step 3 exists at all.
+
+
+0. BEFORE THE PI
+----------------
+Flash Raspberry Pi OS (64-bit). The desktop image, not Lite, unless you intend
+to run only "./run.sh console" - the window needs a display.
+
+In Raspberry Pi Imager's settings set the hostname, your user, the Wi-Fi if you
+need it, and ENABLE SSH. Doing it there saves hunting for a keyboard.
+
+
+1. FIRST BOOT AND THE ADDRESS
+-----------------------------
+    hostname -I
+
+Write that address down. Two things need it:
+
+  - ServerCommuncatio.sys on the robot pendant, which must point at THE PI,
+    not at your PC. This is the commonest reason the robot never connects.
+  - deploy.ps1 / deploy.sh on your PC.
+
+Bring the system up to date:
+
+    sudo apt update && sudo apt full-upgrade -y
+    sudo reboot
+
+Confirm the architecture and Python, because the wheels are built for exactly
+this pair:
+
+    uname -m          # aarch64
+    python3 -V        # 3.13.x on Trixie
+
+If either differs from what the wheel zip was built for, the offline install
+will refuse them. Rebuild the zip; do not force them.
+
+
+2. SYSTEM PACKAGES
+------------------
+    sudo apt install -y python3-full python3-venv python3-tk \
+                        libgl1 libglib2.0-0 unzip
+
+Why each:
+
+  python3-full, python3-venv   create the virtual environment.
+
+  python3-tk                   tkinter is NOT a pip package. A venv borrows the
+                               system interpreter's standard library, so this
+                               has to come from apt. Without it the window
+                               fails to open and only ./run.sh console runs.
+
+  libgl1, libglib2.0-0         OpenCV's wheel links against them. Present on
+                               the desktop image, absent on Lite, where the
+                               symptom is "ImportError: libGL.so.1" at the
+                               first import cv2.
+
+  unzip                        only for the offline library install.
+
+
+3. THE VIRTUAL ENVIRONMENT
+--------------------------
+The path matters: run.sh looks for ~/venv by name and refuses to start without
+it.
+
+    python3 -m venv ~/venv
+    source ~/venv/bin/activate
+    which python3            # /home/<you>/venv/bin/python3
+    python3 -V               # 3.13.x
+
+Do not put it inside ~/INA700 - that folder is overwritten by every deploy.
+
+If "which python3" still answers /usr/bin/python3 the activation did not take,
+and every pip command after it fails with
+
+    error: externally-managed-environment
+
+That error is Debian protecting the system Python. It means you are outside the
+venv, not that pip is broken. Do not reach for --break-system-packages.
+
+
+4. THE LIBRARIES
+----------------
+With the venv active, and never with sudo.
+
+Online:
+
+    python3 -m pip install numpy "opencv-contrib-python<5" PyYAML ncnn \
+                           pypylon pillow
+
+Offline, from the wheel zip:
+
+    unzip ~/pi-wheels-py313-aarch64.zip -d ~/pi-wheels
+    cd ~/pi-wheels/wheels
+    python3 -m pip install --no-index --find-links=. -r pi-requirements.txt
+
+Two traps:
+
+  - It must be opencv-CONTRIB-python. cv2.aruco is not in plain opencv-python,
+    and the marker is what turns pixels into millimetres.
+
+  - Do NOT install ~/INA700/pi/requirements.txt on the Pi. That is the PC list
+    and it pulls in ultralytics, which drags in torch, whose aarch64 wheel
+    fills the Pi's disk before it finishes installing. The Pi runs the exported
+    ncnn model instead.
+
+Prove it took:
+
+    python3 -c "import cv2, numpy, yaml, ncnn, PIL, tkinter; \
+                from pypylon import pylon; \
+                print('opencv', cv2.__version__, '| aruco', hasattr(cv2,'aruco'))"
+
+aruco must print True.
+
+
+5. THE PROJECT
+--------------
+From the PC, with the bundle built:
+
+    .\deploy.ps1
+
+It copies ina700-pi.tar.gz across, unpacks it into ~/INA700, compares the
+config's hash on both sides so you can see the Pi is running what you think it
+is, and runs preflight there.
+
+By hand, if you would rather drag the file over:
+
+    mkdir -p ~/INA700
+    tar -xzf ~/ina700-pi.tar.gz -C ~/INA700
+
+
+6. FIRST RUN
+------------
+    source ~/venv/bin/activate
+    cd ~/INA700/pi
+    ./run.sh preflight
+
+Every row should pass. What a failure means:
+
+    python, opencv, pypylon      step 4 did not finish - re-read its output
+    camera found, frame grab     see step 7
+    marker detected / steady     the ArUco sheet is not in view, or blurred
+    lighting                     the lamp - it names the factor to change
+                                 camera.exposure_us by
+    field of view                the camera is cropped or aimed wrong
+    slot angle source            the slot angles were measured with a
+                                 different estimator than the one about to run
+
+Then:
+
+    ./run.sh light      aim the lamp by numbers
+    ./run.sh bench      about 426 ms median against a 3000 ms budget
+    ./run.sh            the window
+    ./run.sh console    or the pick> prompt, over plain SSH
+
+Running a cycle takes TWO buttons: yours sends the position, and nothing moves
+until the yellow button at the cell is pressed.
+
+
+7. IF THE CAMERA IS NOT FOUND
+-----------------------------
+Only if preflight's "camera found" or "frame grab" row fails. Skip otherwise.
+
+Basler USB3. The Pi's default USB buffer is far too small for a five megapixel
+frame; the symptom is a camera that enumerates but drops or fails grabs.
+
+    sudo nano /boot/firmware/cmdline.txt
+
+Append to the single existing line - do not add a new line:
+
+    usbcore.usbfs_memory_mb=1000
+
+Then sudo reboot.
+
+Basler GigE. Give the Pi a static address on the camera's subnet and raise the
+MTU if the camera supports jumbo frames. Check the camera answers at all before
+blaming the code:
+
+    ping <camera address>
+
+Permissions. If the camera is visible to lsusb but pypylon cannot open it, it
+is a udev rule, not the code. Run preflight once with "sudo -E" to confirm that
+is the cause before changing anything permanent.
+
+
+8. EVERY SESSION AFTERWARDS
+---------------------------
+    source ~/venv/bin/activate
+    cd ~/INA700/pi
+    ./run.sh preflight
+
+New terminal, new activation - the venv does not follow you between terminals.
+It does survive reboots, and it survives every re-deploy of the tar.
+
+Run run.sh, do not source it. Sourced, it replaces the shell of the terminal
+you are typing in, and closing the window closes that terminal with it.

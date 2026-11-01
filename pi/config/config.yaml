@@ -119,8 +119,8 @@ coordinates:
   # rz = slot_angle - object_angle
   place_slot_angles_deg:
     CIRCLE: 0.00   # no orientation to get wrong
-    STAR: 40.74   # 6 seating(s), play 0.00 deg
-    SQUARE: 88.39   # 6 seating(s), play 0.03 deg
+    SQUARE: 2.75   # 7 seating(s), play 1.08 deg
+    STAR: 40.02   # 7 seating(s), play 0.30 deg
 
 robot:
   transport: tcp         # loopback | tcp
