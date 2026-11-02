@@ -129,31 +129,27 @@ class Container:
         raise ValueError(f"Unknown detector kind: {kind}")
 
     def build_orientation_estimator(self) -> OrientationEstimator:
+        """The one estimator there is. `kind` is still read, and still
+        refused when it is anything else, because the slot angles record
+        which estimator measured them: a config left over from the harmonic
+        days must fail here rather than place every object out by the
+        difference between the two."""
         section = self._config.get("orientation", {})
         kind = str(section.get("kind", "fitted")).lower()
+        if kind != "fitted":
+            raise ValueError(
+                f"Unknown orientation kind: {kind}. The only estimator is "
+                f"'fitted'; re-measure the slot angles with it.")
 
-        if kind == "fitted":
-            from adapters.detection.fitted_orientation_estimator import (
-                FittedOrientationEstimator)
-            return FittedOrientationEstimator(
-                padding_px=section.get("padding_px", 8),
-                candidates=section.get("mask_candidates"),
-                min_fit=section.get("min_fit", 0.60),
-                good_enough_fit=section.get("good_enough_fit", 0.85),
-                step_deg=section.get("fit_step_deg", 2.0),
-                agreement_deg=section.get("agreement_deg", 4.0),
-            )
-
-        if kind != "harmonic":
-            raise ValueError(f"Unknown orientation kind: {kind}")
-
-        from adapters.detection.orientation_estimator import HarmonicOrientationEstimator
-        return HarmonicOrientationEstimator(
+        from adapters.detection.fitted_orientation_estimator import (
+            FittedOrientationEstimator)
+        return FittedOrientationEstimator(
             padding_px=section.get("padding_px", 8),
-            binary_threshold=section.get("binary_threshold", 0),
-            bins=section.get("bins", 180),
-            min_confidence=section.get("min_confidence", 0.05),
-            min_contrast_levels=section.get("min_contrast_levels", 30.0),
+            candidates=section.get("mask_candidates"),
+            min_fit=section.get("min_fit", 0.60),
+            good_enough_fit=section.get("good_enough_fit", 0.85),
+            step_deg=section.get("fit_step_deg", 2.0),
+            agreement_deg=section.get("agreement_deg", 4.0),
         )
 
     def build_colour_classifier(self) -> ColourClassifier:

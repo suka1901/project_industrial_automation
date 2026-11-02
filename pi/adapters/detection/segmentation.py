@@ -31,16 +31,6 @@ def object_mask(crop: Any, threshold: int = 0) -> Any:
     The object may be lighter or darker than the paper, so one of the two
     polarities is right and the other is the paper around it. Both are scored
     and the better one wins.
-
-    This used to read a SINGLE pixel at the centre of the crop and flip if it
-    was dark. One pixel is not a measurement: a specular highlight off a
-    glossy object - which lands near the middle, and is the same place every
-    time - inverted the whole mask. The outline then traced the crop rectangle
-    instead of the object, and a rectangle has exactly zero five-fold content,
-    so every star failed the confidence gate at about 0.02 against 0.18 for
-    the same photo segmented correctly. A square survived it, which was worse:
-    a rectangle still has strong FOUR-fold content, so it reported a confident
-    angle of 44 degrees rather than complaining.
     """
     import cv2
 
@@ -93,21 +83,6 @@ def border_fraction(mask: Any) -> float:
 
 def contrast_levels(crop: Any, threshold: int = 0) -> float:
     """Grey-level separation between the object and the paper it lies on.
-
-    Measured on your own photos, this is the single number that says whether
-    an outline can be traced at all:
-
-        works   contrast  37 to 120   angle error 0.05 to 0.46 deg
-        fails   contrast  16 and 25   angle error 2.81 and 9.11 deg
-
-    Both failures were WHITE objects on white paper, where the object and the
-    paper differ by three or four grey levels - less than the sensor's own
-    noise. Otsu then splits shadow from highlight instead of object from
-    paper, hands back the paper with a bite out of it, and the harmonic
-    estimator faithfully measures the angle of a shape that is not there.
-    Canny and a LAB colour distance fail the same way: the boundary is not in
-    the image to be found. So this is a gate, not something to tune around -
-    the fix for a low reading is light, not code.
     """
     import cv2
     import numpy as np
@@ -127,13 +102,7 @@ def contrast_levels(crop: Any, threshold: int = 0) -> float:
 
 # A mask can sit below WHOLE_CROP_FRACTION and still be the paper: the hole
 # the object leaves in it is filled by clean_mask, and what remains stops a
-# little short of the corners. The border ring is what gives it away. The crop
-# is the detection box PLUS padding, so an object cannot reach the crop's edge
-# while the paper around it always does.
-#
-# Measured over the labelled photos: every mask that had found the object had
-# a border fraction of 0.00 to 0.01; every mask that had found the paper, 0.66
-# to 0.94. There is nothing in between to get wrong.
+# little short of the corners.
 PAPER_BORDER_FRACTION = 0.35
 
 
@@ -278,12 +247,7 @@ def gradient_mask(crop: Any, threshold: int = 0) -> Any:
     # comparable weight; on a white object the border's step is a thin
     # minority against a wide flat interior, so the split lands ABOVE the
     # border and keeps only the few brightest pixels - one per cent of the
-    # crop, nothing to fill. The border of a shape inside a padded box is a
-    # known and small share of the crop, so naming that share directly finds
-    # it. On the white square that the brightness route reads as paper, this
-    # takes the fit from 0.26 to 0.94.
-    # Not `threshold`: that name is this function's own parameter, an int
-    # grey level, and a gradient magnitude is neither an int nor a grey level.
+    # crop, nothing to fill. 
     cut = float(np.percentile(magnitude, EDGE_PERCENTILE))
     edges = ((magnitude >= cut) * 255).astype("uint8")
     return clean_mask(_fill_outline(edges))

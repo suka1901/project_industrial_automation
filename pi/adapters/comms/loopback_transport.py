@@ -1,4 +1,4 @@
-"""A fake robot, for testing without hardware.
+"""A fake robot, for testing without robot hardware.
 
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place

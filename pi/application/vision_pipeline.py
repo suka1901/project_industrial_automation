@@ -48,8 +48,6 @@ class VisionPipeline:
         """Analyse one frame and return the detections plus elapsed time."""
         started = time.perf_counter()
 
-        # Refresh the calibration first: if the camera has been nudged, the
-        # coordinates derived from this very frame must already reflect it.
         if self._calibrator is not None:
             self._calibrator.update(frame)
 

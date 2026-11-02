@@ -9,22 +9,6 @@ known rotations each (tools/orientation_bench.py):
      grey levels, less than the sensor's noise. Running several and keeping
      the best per object took squares from 49 to 79 per cent usable.
 
-  2. The old gate measured the wrong thing. The harmonic's own strength says
-     how N-lobed an outline is, and a speckled mask scores well on that while
-     being 25 degrees wrong, so raising that gate filtered almost nothing.
-     How well an ideal square or star OVERLAYS the mask does separate them:
-     gating on it left a median error of 0.5 deg and a worst case near 2 deg.
-
-So the mask is chosen by shape fit, the angle is read from the whole area of
-that mask, and the fit score - not the harmonic strength - is the confidence.
-
-Nothing is ever refused. An object whose fit is poor is still placed at the
-best angle that can be worked out for it: the candidates rarely fail in the
-same direction, so their fit-weighted consensus beats any one of them, and
-beats sending a zero. Being 10 degrees out is a worse placement; being
-unrotated is a wrong one. The fit still travels with the reading, so the log
-says which placements were guesses.
-
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
 """
@@ -167,12 +151,6 @@ class FittedOrientationEstimator(OrientationEstimator):
             # has padding round it, so nothing real reaches the corners.
             if area < 100.0 or covers_whole_crop(area, mask):
                 continue
-            # The same mistake one size smaller, and the dangerous one: the
-            # paper with the object's hole filled in stops short of the
-            # corners, so it passes the test above, and then fits an ideal
-            # square well enough to be believed. What it measures is the angle
-            # of the crop. Dropping it here is what leaves the gradient route,
-            # which has no opinion about which side is brighter, to answer.
             if looks_like_paper(mask):
                 log.debug("%s found the paper rather than the object "
                           "(border %.2f) - not used", name, border_fraction(mask))
@@ -191,11 +169,6 @@ class FittedOrientationEstimator(OrientationEstimator):
 
     def _refined_angle(self, mask: Any, order: int, fitted_angle: float) -> float:
         """The area harmonic's angle, kept only while it agrees with the fit.
-
-        The harmonic reads every pixel and is the more precise of the two -
-        0.14 deg against 0.60 on the labelled photos. It is also the one that
-        can be confidently wrong, so the fitted angle, which the confidence
-        vouches for, is what it has to agree with.
         """
         harmonic = area_harmonic_angle(mask, order)
         if harmonic is None:
@@ -228,10 +201,6 @@ class FittedOrientationEstimator(OrientationEstimator):
 
 def area_harmonic_angle(mask: Any, order: int) -> Optional[float]:
     """The N-fold direction of a mask, summed over its whole area.
-
-    The same idea as the radial signature, but every pixel votes instead of
-    only the boundary ones, weighted by r^N so the rim decides. A nick in the
-    outline moves a handful of pixels here, and the entire signature there.
     """
     import cv2
     import numpy as np
@@ -263,11 +232,6 @@ def area_harmonic_angle(mask: Any, order: int) -> Optional[float]:
 
 def consensus_angle(readings: Sequence[Tuple[float, float]], order: int) -> float:
     """One angle from several weak ones, weighted by how well each fitted.
-
-    Angles of an N-fold shape live on a circle of 360/N degrees, so they are
-    averaged as directions rather than as numbers: 1 degree and 89 degrees on
-    a square are two degrees apart, not eighty-eight, and averaging them
-    arithmetically gives 45 - the one answer that is certainly wrong.
     """
     import math
 

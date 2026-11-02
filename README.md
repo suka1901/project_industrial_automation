@@ -66,7 +66,7 @@ Dependencies point inward only. Nothing in `domain` knows that OpenCV, YOLO,
 Tkinter or sockets exist.
 
 ```
-domain/          shapes, angles, the harmonic maths     no I/O, no libraries
+domain/          shapes, angles, the pick area         no I/O, no libraries
 ports/           nine abstract interfaces                what the app needs
 application/     pipeline, selectors, cycle controller    policy
 adapters/        camera, YOLO, ArUco, colour, GUI, TCP    the outside world

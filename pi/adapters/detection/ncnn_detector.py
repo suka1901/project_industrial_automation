@@ -1,23 +1,5 @@
 """YOLO detection through ncnn, without torch.
 
-The Raspberry Pi runs the same model as the PC, but ultralytics - which is
-only the LOADER - drags in torch, and torch's aarch64 wheel bundles about
-2 GB of CUDA libraries for a board that has no NVIDIA GPU. It filled the Pi's
-disk before it finished installing.
-
-ncnn runs the exported model in 12 MB. What ultralytics did for free, and what
-this class therefore has to do by hand, is the letterboxing on the way in and
-the decoding, thresholding and non-maximum suppression on the way out.
-
-The exported graph ends at one blob, `out0`, shaped (4 + classes, 8400):
-rows 0-3 are cx, cy, w, h in LETTERBOXED pixels, and the remaining rows are
-per-class scores already through a sigmoid. There is no objectness row - v8
-dropped it - so the class score is the confidence.
-
-The export must come from a pnnx matching the installed ncnn. A mismatched one
-builds the wrong graph, and it segfaults in Slice two layers before the output
-rather than reporting anything.
-
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
 """

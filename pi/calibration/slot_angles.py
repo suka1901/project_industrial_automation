@@ -1,35 +1,4 @@
 """Measures the angle each shape must arrive at in its slot.
-
-Point the camera so the jig is in frame, seat each object in its own slot, and
-draw a box round that slot. The angle is read where the object already lies.
-
-WHEN THE JIG WILL NOT FIT IN THE FRAME, slide it into view and back out
-again. What is measured here is a ROTATION, and sliding does not change one:
-the slot angles stay valid as long as the jig is never TURNED on the way in
-or out. Push it along a straight edge, or against the sheet, rather than
-carrying it - and if it does get turned, these numbers are wrong by exactly
-that much, invisibly, because every placement is then out by the same amount.
-The jig does not have to be in frame at any other time: the placing positions
-live on the robot, and nothing at run time looks at it.
-
-The older way - lift the object straight out of the slot without turning it,
-set it on the picking sheet, measure there - put a hand movement between the
-slot and the number. Any twist during the lift became a permanent error in a
-value every placement depends on.
-
-Record each shape SEVERAL times: seat it, press SPACE, lift it out, seat it
-again, press SPACE again. A shape-matched slot still has play in it, and the
-spread across seatings is the only honest measure of how much. One reading
-cannot tell you whether it is repeatable to a tenth of a degree or to five.
-
-SPACE is refused until the slot has been seen EMPTY since the last seating.
-Recording without lifting the object out just copies one reading, and the
-play then comes out near zero - which looks like a perfect slot and means
-nothing at all.
-
-Keys: R box the slot, 1-5 pick the shape, SPACE record a seating,
-      C clear this shape, S save, Q quit.
-
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
 """
@@ -76,11 +45,6 @@ def build_source(kind: str, path: Optional[str]):
 
 def largest_object_box(image, region: Optional[Tuple[int, int, int, int]] = None
                        ) -> Optional[BoundingBox]:
-    """Bounding box of the biggest thing in view, ignoring specks.
-
-    `region` restricts the search to one slot. Without it the jig plate itself,
-    or an object still lying on the sheet, is often the biggest thing in frame.
-    """
     import cv2
 
     offset_x = offset_y = 0
@@ -106,11 +70,6 @@ def largest_object_box(image, region: Optional[Tuple[int, int, int, int]] = None
     area = cv2.contourArea(largest)
     if area < 500:
         return None
-
-    # A "contour" covering nearly the whole search area means there was no
-    # object to separate from the background - an empty slot, or a region
-    # drawn entirely on the plate. Reporting a box here would let an angle be
-    # recorded from nothing at all.
     searched = float(image.shape[0] * image.shape[1])
     if area > 0.9 * searched:
         return None
@@ -133,10 +92,6 @@ def main() -> int:
     parser.add_argument("--display-width", type=int, default=1100,
                         help="preview width in pixels; the measurement stays full size")
     args = parser.parse_args()
-
-    # The slot angle and the object angle are subtracted from each other at
-    # run time, so every constant offset cancels - but only while BOTH are
-    # measured the same way. Building the estimator from the configuration is
     # what keeps that true when orientation.kind changes.
     from infrastructure.config_loader import load_config
     from infrastructure.container import Container
@@ -148,11 +103,6 @@ def main() -> int:
     # them is what says whether a single stored angle can be trusted.
     seatings: Dict[Shape, List[float]] = {}
     history: Deque[float] = deque(maxlen=HISTORY)
-    # A seating only counts once the slot has been seen empty since the last
-    # one. Without this the same seating can be recorded over and over: the
-    # reading re-settles to the identical value and the play comes out near
-    # zero, which looks like a superbly repeatable slot and is really just one
-    # measurement copied thirty times.
     armed = True
     selected = SELECTABLE[0]
     # One region per shape: each slot sits somewhere different on the jig.
@@ -312,12 +262,7 @@ def main() -> int:
 
 def write_yaml(path: Path, seatings: Dict[Shape, List[float]],
                estimator_kind: str = "fitted") -> None:
-    """Write the block to paste into config.yaml.
-
-    Each angle is the circular mean over the seatings, and the play is carried
-    alongside it as a comment: it is the tolerance every placement of that
-    shape has to live inside, and it is worth seeing when reading the config.
-    """
+   
     if not seatings:
         print("Nothing recorded.")
         return
@@ -339,12 +284,6 @@ def write_yaml(path: Path, seatings: Dict[Shape, List[float]],
         else:
             note += f", play {play:.2f} deg"
         lines.append(f"  {shape.value}: {angle:.2f}   # {note}")
-
-    # Machine-readable, so preflight can check the paste happened and that
-    # enough seatings were taken. Only the block above goes into config.yaml.
-    # Which estimator measured these. Preflight refuses a mismatch: slot and
-    # object angles only cancel while both come from the same estimator, and
-    # mixing them turns a 45 degree slot into a 45 degree error.
     lines += ["", f"measured_with: {estimator_kind}"]
     lines += ["", "# Not for config.yaml - preflight reads this from here.",
               "slot_angle_quality:"]

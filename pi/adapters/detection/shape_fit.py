@@ -7,11 +7,6 @@ degrees wrong. The question a gate should ask is the other one: IS this a
 square at all? Laying an ideal square or star over the mask and measuring the
 overlap answers it, and the same sweep hands back the angle for free.
 
-Measured on 43 labelled squares, each read at six known rotations: gating on
-the overlap kept 79 per cent of the readings with a median error of 0.5 deg
-and a worst case near 2 deg, where gating on the harmonic's own strength kept
-everything and left errors above 20 deg in the set.
-
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
 """

@@ -5,7 +5,10 @@
 
 title INA700 - coordinate, comms and UI ports
 
-' ObjectSelector and its rules are in 05-application.puml.
+' ObjectSelector and the rest of the layering are in
+' pi-01-architecture.puml. Only the adapters the station runs are
+' drawn here: the identity mapper and the loopback robot exist for
+' the tests and are not in the cell.
 
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
@@ -74,10 +77,6 @@ class MutableHomographyMapper {
   +scale_px_per_mm : float [0..1]
   +to_world_xy(point) : (float, float)
 }
-class IdentityMapper {
-  -scale_mm_per_px : float
-}
-
 class TcpServerTransport {
   -host : str
   -port : int
@@ -85,9 +84,6 @@ class TcpServerTransport {
   +start()
   +send(message)
   +receive(timeout_s) : str [0..1]
-}
-class LoopbackTransport {
-  -replies : List<str>
 }
 class MessageCodec {
   +encode_pick(target) : str
@@ -102,10 +98,19 @@ class RobotCommander {
 
 class TkView {
   -budget_ms : float
+  -preview_max_width : int
   +render(snapshot)
   +run()
   -_handle_cycle_click()
+  -_render_preview(preview)
+  -_draw_pose(canvas, detection, scale)
   -_tick()
+}
+class ConsoleView {
+  +render(snapshot)
+  +run()
+  -_print_scene()
+  -_watch_status()
 }
 
 ArucoCalibrator ..|> SceneCalibrator
@@ -114,20 +119,20 @@ ArucoCalibrator --> MutableHomographyMapper : refreshes every frame
 
 MutableHomographyMapper ..|> CoordinateMapper
 MutableHomographyMapper ..> project : projects with
-IdentityMapper ..|> CoordinateMapper
 
 TcpServerTransport ..|> RobotTransport
-LoopbackTransport ..|> RobotTransport
 RobotCommander --> RobotTransport
 RobotCommander *-- MessageCodec
 
 TkView ..|> View
+ConsoleView ..|> View
 
 note bottom of ArUco
   Carried forward from Exercise 2 with the same
-  responsibility. The calibrator USES it rather
-  than extending it: detecting a marker and
-  building a coordinate frame are two jobs.
+  responsibility, and living in adapters/detection.
+  The calibrator USES it rather than extending it:
+  detecting a marker and building a coordinate
+  frame out of one are two different jobs.
 end note
 
 note bottom of MessageCodec
@@ -140,10 +145,10 @@ end note
 ArUco -[hidden]down- ArucoCalibrator
 ArucoCalibrator -[hidden]down- project
 project -[hidden]down- MutableHomographyMapper
-MutableHomographyMapper -[hidden]down- IdentityMapper
-TcpServerTransport -[hidden]down- LoopbackTransport
-LoopbackTransport -[hidden]down- MessageCodec
+MutableHomographyMapper -[hidden]down- TcpServerTransport
+TcpServerTransport -[hidden]down- MessageCodec
 MessageCodec -[hidden]down- RobotCommander
 RobotCommander -[hidden]down- TkView
+TkView -[hidden]down- ConsoleView
 
 @enduml

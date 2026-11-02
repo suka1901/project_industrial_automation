@@ -1,11 +1,5 @@
 """The rectangle on the table that objects may be picked from.
 
-The camera sees more than the picking sheet - the jig is in frame too, so
-that the slot angles can be measured where the objects actually lie. That
-means objects already placed in the jig are detected exactly like objects
-waiting on the sheet, and without this they would be offered as picking
-candidates.
-
 Pure geometry, in picking work object millimetres.
 
 Author: Suraj Karki

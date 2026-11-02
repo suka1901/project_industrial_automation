@@ -1,0 +1,98 @@
+@startuml INA700_pi_threads
+' INA700 - the Pi's threads and what passes between them
+' Author: Suraj Karki
+' Course: INA700 - AI-based pick and place
+'
+' The course asks for multithreading where each thread owns one distinct
+' responsibility. These are those threads. Nothing is shared between them
+' except bounded queues and one guarded snapshot, so there is no lock to
+' forget and no state two threads can disagree about.
+'
+' Every queue holds at most a frame or two on purpose. The camera produces
+' fifteen frames a second and inference manages two or three; put_newest
+' therefore DROPS the stale frame rather than queueing it, because a queue
+' that fills is a system showing the operator a picture of the past.
+
+title INA700 - threads, queues and the shared snapshot
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam nodesep 18
+skinparam ranksep 34
+skinparam ArrowColor #555555
+skinparam rectangle {
+  BorderColor #333333
+  BackgroundColor #EFF6EC
+  BackgroundColor<<queue>> #EAF2FB
+  BackgroundColor<<outside>> #FBEAEA
+  BackgroundColor<<state>> #F2F2EE
+}
+
+rectangle "Basler camera" as CAM <<outside>>
+rectangle "ABB controller\n(RAPID client)" as ROBOT <<outside>>
+rectangle "operator" as HUMAN <<outside>>
+
+rectangle "1  CaptureWorker\n--\ngrabs frames at capture_fps\npublishes the image for the preview" as T1
+rectangle "2  InferenceWorker\n--\nVisionPipeline.process\ndetect, orient, colour, calibrate\nprints the inference time" as T2
+rectangle "3  MappingWorker\n--\nCoordinateService\npixels to millimetres, and rz" as T3
+rectangle "4  CycleWorker\n--\nCycleController\nselect, command, verify, retry" as T4
+rectangle "5  ConnectionWorker\n--\naccepts the robot's connection\nowns connected / not connected" as T5
+rectangle "main thread\n--\nTkView or ConsoleView\nrenders the snapshot" as MAIN
+
+rectangle "frames\nmaxsize 2" as Q1 <<queue>>
+rectangle "results\nmaxsize 2\n(pixels)" as Q2 <<queue>>
+rectangle "scenes\nmaxsize 2\n(millimetres)" as Q3 <<queue>>
+rectangle "requests\nmaxsize 8\n(PickRequest)" as Q4 <<queue>>
+rectangle "SharedState\n--\none immutable StateSnapshot\nbehind one lock" as STATE <<state>>
+
+CAM --> T1 : pypylon grab
+T1 --> Q1 : put_newest(Frame)
+Q1 --> T2
+T2 --> Q2 : put_newest(InferenceResult)
+Q2 --> T3
+T3 --> Q3 : put_newest(MappedScene)
+Q3 --> T4 : LatestResultHolder\ntakes the freshest, not the oldest
+
+HUMAN --> MAIN : shape and colour,\nSend pick to robot
+HUMAN ..> Q4 : typed line, or the pipe
+MAIN --> Q4 : PickRequest
+Q4 --> T4
+
+T4 --> ROBOT : move <shape> x y rz#
+ROBOT --> T4 : DONE: / ERROR:
+T5 --> ROBOT : listens on 0.0.0.0:5000
+
+T1 ..> STATE : the newest image
+T2 ..> STATE : boxes, inference time
+T3 ..> STATE : poses in millimetres
+T4 ..> STATE : status, cycle report
+T5 ..> STATE : connected
+STATE ..> MAIN : snapshot(), ten times a second
+
+note right of Q1
+  put_newest, not put. When inference is
+  busy the stale frame is thrown away and
+  the new one takes its place: the robot
+  must be told where the object is NOW,
+  and a queue that fills would hand it a
+  position from several seconds ago.
+end note
+
+note right of MAIN
+  The view owns the main thread because Tk
+  insists on it. That is why the terminal
+  prompt is a command SOURCE on a thread of
+  its own rather than a second view - it is
+  what lets the window and the terminal both
+  be live at once.
+end note
+
+note bottom of T4
+  Nothing moves when the command is sent.
+  The robot holds the position until the
+  yellow button is pressed at the cell;
+  the status line says which of the two
+  buttons the cell is waiting for.
+end note
+
+@enduml

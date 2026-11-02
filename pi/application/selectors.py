@@ -26,13 +26,6 @@ class AllowedShapeSelector(ObjectSelector):
 
 class PickAreaSelector(ObjectSelector):
     """Keeps only objects lying on the picking sheet.
-
-    The jig is deliberately in the camera frame so the slot angles can be
-    measured where the objects lie, which means an object already placed in a
-    slot is detected exactly like one waiting to be picked. RAPID refuses an
-    off-board position anyway, but a refusal costs the whole cycle: the same
-    jig object is nearest again on the retry, and all three attempts go the
-    same way. Better never to offer it.
     """
 
     def __init__(self, area: Rect) -> None:

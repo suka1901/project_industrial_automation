@@ -1,12 +1,5 @@
 """The detections as figures, for the window to show beside the picture.
 
-The course asks the GUI to display each detected object's position and
-orientation. The overlay shows both - a marker at the centre, a ray along
-every symmetry axis - and a picture is the better way to catch a misread,
-because a ray lying across the object's own arm is obviously right in a way
-that reading 156.5 in a table never is. But a ray cannot be quoted, and an
-examiner asking to see the position and orientation is asking for numbers.
-
 Kept apart from tk_view so it can be tested without a display: formatting is
 the part with decisions in it, and Tk is not needed to make them.
 

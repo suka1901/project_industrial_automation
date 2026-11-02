@@ -40,10 +40,7 @@ class TkView(View):
         self._on_close = on_close
         self._snapshot_provider = snapshot_provider
         self._refresh_ms = refresh_ms
-        # Rescaling a five megapixel frame is the window's whole cost, and on
-        # the Pi it competes with the model for the same four cores. Past
-        # about this width the operator learns nothing more from a bigger
-        # picture, so it is the first thing to lower when the Pi is busy.
+        # Rescaling a five megapixel frame is the window's whole cost.
         self._preview_max_width = preview_max_width
         self._budget_ms = budget_ms
         # A worker that dies stops the whole application. Without this the
@@ -72,11 +69,6 @@ class TkView(View):
 
     def _maximise(self) -> None:
         """Fill the screen, whatever window manager is underneath.
-
-        A fixed 1180x640 wasted most of a station monitor and cropped the
-        preview on a small one. The ways to maximise differ by platform and
-        several of them raise rather than degrade, so each is tried in turn
-        and sizing to the screen is the fallback that always works.
         """
         for attempt in (lambda: self._root.state("zoomed"),                  # Windows
                         lambda: self._root.attributes("-zoomed", True)):     # X11
@@ -109,11 +101,6 @@ class TkView(View):
             # view. UNKNOWN is not offered - it is an answer, not a request.
             values=[ANY] + [c.value for c in Colour if c is not Colour.UNKNOWN],
         ).grid(row=0, column=3, padx=(0, 12))
-
-        # "Send" rather than "Start": this button only chooses the object and
-        # hands the position to the robot. Nothing moves until the yellow
-        # button on the cell is pressed, and a button labelled Start promises
-        # otherwise.
         self._cycle_button = ttk.Button(
             controls, text="Send pick to robot", command=self._handle_cycle_click
         )
@@ -170,12 +157,6 @@ class TkView(View):
 
     def _render_preview(self, preview) -> None:
         """Draw the newest frame with a box round each detection.
-
-        Shape, colour and confidence are drawn; the millimetre values live in
-        the table, and repeating them over the image makes both harder to read.
-        Colour belongs here rather than only in the table: seeing the name on
-        the object itself is what catches a misread, which reading it off a row
-        and matching it back to a box does not.
         """
         if preview is None or preview.image is None:
             return

@@ -41,10 +41,7 @@ class RobotCommander:
             log.exception("Failed to build the pick command: %s", exc)
             return CycleOutcome.FAILED
 
-        # The exact bytes, not a summary. When the robot does something the
-        # numbers do not explain, the first question is always what it was
-        # actually told - and a log that cannot answer that turns a two minute
-        # check into an afternoon of guessing at both ends of the wire.
+        # The exact bytes, not a summary. 
         log.warning("-> %s", message)
 
         try:
@@ -53,8 +50,7 @@ class RobotCommander:
             log.exception("Failed to send pick command: %s", exc)
             return CycleOutcome.FAILED
 
-        # The robot answers once, after the operator has pressed the yellow
-        # button and the motion has finished.
+        # The robot answers once, the motion has finished.
         raw = self._transport.receive(self._reply_timeout_s)
         log.warning("<- %s", raw if raw is not None else "(no reply - timed out)")
         return self._codec.decode_reply(raw)

@@ -43,14 +43,9 @@ class ArUco:
 
         if not hasattr(cv2, "aruco"):
             raise RuntimeError(
-                "cv2.aruco is missing. Install opencv-contrib-python "
-                "(the plain opencv-python package does not include ArUco)."
+                "cv2.aruco is missing...."
             )
 
-        # OpenCV's ArUco type stubs vary between releases: some declare the
-        # DetectorParameters tuning fields, some do not, so an editor may flag
-        # a field that exists perfectly well at runtime. Going through an
-        # Any-typed handle keeps the checker quiet and changes no behaviour.
         aruco_api: Any = cv2.aruco
 
         aruco_dict = aruco_api.getPredefinedDictionary(
@@ -58,8 +53,7 @@ class ArUco:
         )
         parameters = aruco_api.DetectorParameters()
         if self._refine_corners:
-            # Sub-pixel refinement: worth about a millimetre of accuracy for
-            # almost no cost, and not something Exercise 2 needed.
+            # Sub-pixel refinement: worth about a millimetre of accuracy
             parameters.cornerRefinementMethod = aruco_api.CORNER_REFINE_SUBPIX
 
         self._detector = aruco_api.ArucoDetector(aruco_dict, parameters)

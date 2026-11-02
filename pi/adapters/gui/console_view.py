@@ -1,17 +1,5 @@
 """A terminal operator interface, for running with no display.
 
-The Pi at the station is normally reached over SSH, where Tk cannot open a
-window at all - the failure is `no display name and no $DISPLAY`. This View
-needs no display, no X server and no VNC: the operator types
-
-    circle red
-
-and the cycle runs. It is the flow the project was described with in the
-first place, and the GUI is the richer alternative rather than the only one.
-
-Same View port as TkView, so nothing above the adapter changes. Which one
-runs is `gui.kind` in config.
-
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
 """

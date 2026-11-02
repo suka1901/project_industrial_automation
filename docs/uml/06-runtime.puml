@@ -93,7 +93,8 @@ ConnectionWorker --> RobotTransport
 
 TkView --> RequestQueue : writes
 TkView --> SharedState : reads snapshots
-InferenceWorker --> SharedState : writes
+CaptureWorker --> SharedState : writes the newest image
+InferenceWorker --> SharedState : writes boxes and timing
 MappingWorker --> SharedState : writes live poses
 CycleWorker --> SharedState : writes
 ConnectionWorker --> SharedState : writes
@@ -101,14 +102,25 @@ ConnectionWorker --> SharedState : writes
 Container ..> ThreadSupervisor : main.py wires
 
 note bottom of ThreadSupervisor
-  Tkinter must own the main thread, so the GUI
+  Tkinter must own the main thread, so the view
   is not a Worker. It polls SharedState on a
-  timer and hands requests over by queue.
+  timer and hands requests over by queue. The
+  same is true of ConsoleView, which takes the
+  main thread over SSH where Tk has no display.
 end note
 
 note right of FrameQueue
-  Bounded at 2. A slow stage drops the stale
-  frame instead of growing memory.
+  Bounded at 2, and written with put_newest:
+  a slow stage DROPS the stale frame rather
+  than queueing it. A queue that fills would
+  hand the robot a position from seconds ago.
+end note
+
+note right of CaptureWorker
+  Publishes the image straight to SharedState
+  as well as to the queue, so the preview stays
+  live at the capture rate while the boxes drawn
+  on it arrive at the inference rate.
 end note
 
 @enduml

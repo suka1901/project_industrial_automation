@@ -48,49 +48,18 @@ class TestContrastIsMeasuredHonestly(unittest.TestCase):
     def test_a_blank_crop_has_no_contrast(self):
         self.assertLess(contrast_levels(np.full((SIZE, SIZE, 3), 180, np.uint8)), 30)
 
-    def test_the_gate_sits_in_the_empty_band(self):
-        """Nothing measured between 26 and 36, so 30 separates with margin."""
+    def test_the_two_cases_are_far_apart(self):
+        """Nothing measured between 26 and 36. The separation is the point:
+        the light meter calls anything under 20 'no edge to find' and
+        anything over 40 good, and those bands exist because the measurement
+        leaves a gap this wide between an object that can be segmented and
+        one that cannot."""
         for paper, ink, expected in ((150, 30, True), (136, 140, False),
                                      (150, 108, True), (150, 145, False)):
             with self.subTest(paper=paper, ink=ink):
                 self.assertEqual(contrast_levels(scene(paper, ink)) >= 30.0,
                                  expected)
 
-
-class TestTheEstimatorRefusesRatherThanInventing(unittest.TestCase):
-
-    def test_a_low_contrast_object_yields_no_angle(self):
-        from adapters.detection.orientation_estimator import (
-            HarmonicOrientationEstimator)
-        from domain.enums import Colour, Shape
-        from domain.models import BoundingBox, Detection, Frame, PixelPoint
-
-        image = scene(paper=136, ink=140)
-        frame = Frame(image=image, sequence=1, captured_at=0.0)
-        box = BoundingBox(u_min=35.0, v_min=35.0, u_max=105.0, v_max=105.0)
-        detection = Detection(shape=Shape.SQUARE, colour=Colour.WHITE,
-                              confidence=0.9, centre=PixelPoint(70.0, 70.0),
-                              angle_deg=0.0, angle_confidence=0.0, box=box)
-
-        result = HarmonicOrientationEstimator().measure(frame, detection)
-        self.assertEqual(result.angle_deg, 0.0)
-        self.assertEqual(result.confidence, 0.0)
-
-    def test_a_high_contrast_object_still_measures(self):
-        from adapters.detection.orientation_estimator import (
-            HarmonicOrientationEstimator)
-        from domain.enums import Colour, Shape
-        from domain.models import BoundingBox, Detection, Frame, PixelPoint
-
-        frame = Frame(image=scene(paper=150, ink=30), sequence=1,
-                      captured_at=0.0)
-        box = BoundingBox(u_min=35.0, v_min=35.0, u_max=105.0, v_max=105.0)
-        detection = Detection(shape=Shape.SQUARE, colour=Colour.BLACK,
-                              confidence=0.9, centre=PixelPoint(70.0, 70.0),
-                              angle_deg=0.0, angle_confidence=0.0, box=box)
-
-        result = HarmonicOrientationEstimator().measure(frame, detection)
-        self.assertGreater(result.confidence, 0.0)
 
 
 if __name__ == "__main__":

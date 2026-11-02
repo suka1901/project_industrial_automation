@@ -1,0 +1,159 @@
+@startuml INA700_pi_architecture
+' INA700 - the Pi's real system, as it runs at the station
+' Author: Suraj Karki
+' Course: INA700 - AI-based pick and place
+'
+' Read it left to right: the use cases depend on the ports in the middle,
+' and the adapters on the right implement them. Nothing points the other
+' way. That is what lets the Basler be swapped for a folder of photos
+' without a single use case noticing, and tests/test_architecture.py fails
+' the build if an import ever crosses the wrong way.
+'
+' One adapter per port: the one the pi profile actually builds. The mock
+' detector, the file replay and the loopback robot
+' exist in the repository for the tests, and none of them is in the cell,
+' so none of them is in this picture.
+
+title INA700 - the system that runs on the Raspberry Pi
+
+left to right direction
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam nodesep 14
+skinparam ranksep 55
+skinparam ArrowColor #666666
+skinparam class {
+  BorderColor #333333
+  FontSize 12
+  BackgroundColor #FDF6E8
+  BackgroundColor<<port>> #EAF2FB
+  BackgroundColor<<use case>> #EFF6EC
+  BackgroundColor<<value>> #F2F2EE
+  BackgroundColor<<utility>> #F2F2EE
+  BackgroundColor<<hardware>> #FBEAEA
+}
+
+package "application\n(use cases)" as APP {
+  class VisionPipeline <<use case>>
+  class CoordinateService <<use case>>
+  class CycleController <<use case>>
+  class RobotCommander <<use case>>
+  class CompositeSelector <<use case>>
+  class SharedState <<use case>>
+}
+
+package "ports\n(abstractions)" as PORTS {
+  interface FrameSource <<port>>
+  interface ObjectDetector <<port>>
+  interface OrientationEstimator <<port>>
+  interface ColourClassifier <<port>>
+  interface SceneCalibrator <<port>>
+  interface CoordinateMapper <<port>>
+  interface ObjectSelector <<port>>
+  interface RobotTransport <<port>>
+  interface View <<port>>
+}
+
+package "adapters\n(the outside world)" as ADAPT {
+  class Camera <<hardware>>
+  class NcnnDetector
+  class FittedOrientationEstimator
+  class HsvColourClassifier
+  class ArucoCalibrator
+  class MutableHomographyMapper
+  class TcpServerTransport <<hardware>>
+  class TkView
+  class ConsoleView
+}
+
+package "domain  (pure rules - no cv2, no numpy, no sockets)" as DOMAIN {
+  class Detection <<value>>
+  class DetectedObject <<value>>
+  class MappedScene <<value>>
+  class WorldPose <<value>>
+  enum Shape
+  enum Colour
+  class geometry <<utility>>
+  class area <<utility>>
+}
+
+package "infrastructure" as INFRA {
+  class Container
+  class ThreadSupervisor
+  class config_loader <<utility>>
+}
+
+' --- use case  -->  port  <|..  adapter, one row each ------------------
+VisionPipeline --> FrameSource
+FrameSource <|.. Camera
+
+VisionPipeline --> ObjectDetector
+ObjectDetector <|.. NcnnDetector
+
+VisionPipeline --> OrientationEstimator
+OrientationEstimator <|.. FittedOrientationEstimator
+
+VisionPipeline --> ColourClassifier
+ColourClassifier <|.. HsvColourClassifier
+
+VisionPipeline --> SceneCalibrator
+SceneCalibrator <|.. ArucoCalibrator
+
+CoordinateService --> CoordinateMapper
+CoordinateMapper <|.. MutableHomographyMapper
+
+CycleController --> ObjectSelector
+ObjectSelector <|.. CompositeSelector
+
+RobotCommander --> RobotTransport
+RobotTransport <|.. TcpServerTransport
+
+SharedState <-- View
+View <|.. TkView
+View <|.. ConsoleView
+
+' --- inside the application layer --------------------------------------
+CycleController --> RobotCommander
+CycleController --> SharedState
+
+' --- what each layer knows of the domain -------------------------------
+VisionPipeline ..> Detection
+CoordinateService ..> MappedScene
+CoordinateService ..> WorldPose
+CoordinateService ..> geometry
+CompositeSelector ..> area
+DetectedObject ..> WorldPose
+Detection --> Shape
+Detection --> Colour
+
+' --- the composition root ----------------------------------------------
+' Deliberately NOT drawn as arrows into every package: the composition
+' root touches all of them, and nine more lines across the picture would
+' hide the one relationship this diagram exists to show.
+Container ..> config_loader : reads the profile through
+
+note bottom of Container
+  The composition root, and the only file
+  that names a concrete class. It builds
+  whichever adapter the profile names and
+  hands them to the use cases; change one
+  line of config and the same use cases run
+  against different hardware, with nothing
+  below here noticing.
+
+  ThreadSupervisor then runs those use cases
+  on the five threads - see pi-02-threads.
+end note
+
+note bottom of ArucoCalibrator
+  Re-solves the homography from the marker's
+  four corners on every frame, so a nudged
+  camera corrects itself rather than quietly
+  placing beside the object. Pixels per
+  millimetre is never stored.
+end note
+
+@enduml

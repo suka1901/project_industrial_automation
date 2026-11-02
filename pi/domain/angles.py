@@ -1,10 +1,5 @@
 """Averaging angles that wrap.
 
-A square seated in its slot may read 89 degrees on one try and 1 degree on the
-next. Those are the same orientation - the shape maps onto itself every 90
-degrees - so the ordinary mean of 45 is not merely inaccurate, it is a quarter
-turn from the truth and would seat nothing.
-
 Every angle here is first folded into the shape's symmetry period and treated
 as a direction rather than a number, which is the same trick the orientation
 estimator uses on the outline itself.

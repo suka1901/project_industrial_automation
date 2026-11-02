@@ -37,10 +37,19 @@ enum Colour <<enum>> {
   RED
   GREEN
   BLUE
+  WHITE
+  BLACK
   UNKNOWN
   --
   +from_name(name) : Colour
 }
+note right of Colour
+  WHITE and BLACK have no hue at all, so
+  they are decided by brightness against
+  the paper rather than by a hue range.
+  UNKNOWN is an answer, not a request: it
+  is never offered in the window.
+end note
 
 enum CycleOutcome <<enum>> {
   SUCCESS
@@ -82,10 +91,10 @@ class Detection <<frozen>> {
 note right of Detection
   Two different confidences.
   `confidence` is the detector's.
-  `angle_confidence` is |Z| from the
-  harmonic - how clearly the outline
-  showed its N-fold symmetry. A circle
-  is legitimately 0.
+  `angle_confidence` is the overlap
+  between the object's mask and an
+  ideal shape at the angle reported -
+  0 to 1. A circle is legitimately 0.
 end note
 
 class OutlineMeasurement <<frozen>> {
@@ -135,11 +144,28 @@ class CycleReport <<frozen>> {
   +message : str
 }
 
+class Preview <<frozen>> {
+  +image : Any
+  +detections : Sequence<Detection>
+  +sequence : int
+  +detections_sequence : int
+}
+note right of Preview
+  The image comes from the CAPTURE thread at
+  ten to fifteen a second; the boxes come
+  from inference, which manages two or three.
+  They are deliberately not the same age, and
+  detections_sequence says which frame the
+  boxes were measured in - the difference is
+  how stale the overlay is.
+end note
+
 class StateSnapshot <<frozen>> {
   +connected : bool
   +cycle_index : int
   +inference_ms : float
   +detections : Sequence<DetectedObject>
+  +preview : Preview [0..1]
   +last_report : CycleReport [0..1]
   +status_text : str
 }
@@ -148,11 +174,6 @@ class geometry <<utility>> {
   +wrap_deg(angle, period) : float
   +normalise_for_shape(angle, shape, slot) : float
   +place_rotation_deg(object_angle, shape, slot) : float
-}
-
-class orientation <<utility>> {
-  +resample_radial(samples, bins) : list<float>
-  +harmonic_orientation(radii, order) : (float, float)
 }
 
 class marker <<utility>> {
@@ -191,13 +212,15 @@ CycleReport o-- DetectedObject
 CycleReport --> CycleOutcome
 StateSnapshot o-- DetectedObject
 StateSnapshot o-- CycleReport
+StateSnapshot o-- Preview
+Preview o-- Detection
 
 geometry ..> Shape
-orientation ..> geometry
 
 note right of Shape
-  symmetry_order is the harmonic the
-  orientation estimator listens to:
+  symmetry_order is how many ways the
+  shape maps onto itself, and so how
+  far the ideal shape is swept:
   star 5, square 4, triangle 3,
   hexagon 6, circle 0 (no orientation).
 end note

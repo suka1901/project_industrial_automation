@@ -20,9 +20,10 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from adapters.detection.segmentation import (covers_whole_crop, gradient_mask,
-                                             looks_like_paper, object_mask,
-                                             plausibility)
+from adapters.detection.segmentation import (clean_mask, covers_whole_crop,
+                                             gradient_mask, looks_like_paper,
+                                             object_mask, plausibility)
+from adapters.detection.shape_fit import fit_shape
 
 SIZE = 140
 CENTRE = SIZE // 2
@@ -92,30 +93,24 @@ class TestOnePixelCannotInvertTheMask(unittest.TestCase):
                 mask = object_mask(star(speck=255, speck_radius=radius))
                 self.assertGreater(object_share(mask), 0.7)
 
-    def test_the_five_fold_structure_survives_the_speck(self):
-        """What the bug actually cost: the star stopped being a star."""
-        from domain.orientation import harmonic_orientation, resample_radial
-        import math
+    def test_the_star_still_fits_a_star_through_the_speck(self):
+        """What the bug actually cost: the star stopped being a star.
 
-        def confidence(image):
-            mask = object_mask(image)
-            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,
-                                           cv2.CHAIN_APPROX_NONE)
-            outline = max(contours, key=cv2.contourArea).reshape(-1, 2)
-            moments = cv2.moments(max(contours, key=cv2.contourArea))
-            cx = moments["m10"] / moments["m00"]
-            cy = moments["m01"] / moments["m00"]
-            radii = resample_radial([(math.atan2(y - cy, x - cx),
-                                      math.hypot(x - cx, y - cy))
-                                     for x, y in outline])
-            assert radii is not None, "the outline gave no radial signature"
-            return harmonic_orientation(radii, 5)[1]
+        Measured now with the fit the system actually runs on - the overlap
+        between the mask and an ideal five-pointed star - rather than with
+        the radial harmonic, which went when its estimator did.
+        """
+        def overlap(image):
+            fitted = fit_shape(clean_mask(object_mask(image)), 5, step_deg=2.0)
+            self.assertIsNotNone(fitted)
+            assert fitted is not None
+            return fitted[1]
 
-        clean = confidence(star(dark_on_light=True))
-        specked = confidence(star(dark_on_light=True, speck=255))
-        self.assertGreater(clean, 0.10)
-        self.assertGreater(specked, 0.10)
-        self.assertAlmostEqual(clean, specked, delta=0.03)
+        clean = overlap(star(dark_on_light=True))
+        specked = overlap(star(dark_on_light=True, speck=255))
+        self.assertGreater(clean, 0.60)
+        self.assertGreater(specked, 0.60)
+        self.assertAlmostEqual(clean, specked, delta=0.05)
 
 
 class TestPlausibility(unittest.TestCase):

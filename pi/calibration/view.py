@@ -1,10 +1,5 @@
 """Fitting a 2448 x 2048 camera frame onto a laptop screen.
 
-The measurement always runs on the full-resolution frame; only the picture
-shown to the operator is shrunk. Anything the operator draws on the shrunken
-picture has to be scaled back up before it is used, which is what
-`to_full_resolution` is for.
-
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place
 """

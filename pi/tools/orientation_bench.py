@@ -1,4 +1,4 @@
-"""Score the orientation estimators against known rotations.
+"""Score the orientation estimator against known rotations.
 
 There are no angle labels in the dataset - only boxes - so the ground truth is
 made rather than found: every labelled object is rotated by a known amount and
@@ -10,7 +10,7 @@ Needs no camera, no robot and no ultralytics - it reads the label boxes
 instead of running the detector, and the full-resolution raw frames, so the
 crops are the size the live camera really gives.
 
-    python3 tools/orientation_bench.py                  # both estimators
+    python3 tools/orientation_bench.py                  # the estimator
     python3 tools/orientation_bench.py --gates          # where to set the gate
     python3 tools/orientation_bench.py --shape square --limit 60
 
@@ -47,14 +47,16 @@ PADDING_PX = 4
 
 
 def build_estimators() -> Dict[str, Tuple[object, float]]:
-    """Each estimator with the gate the configuration would apply to it."""
-    from adapters.detection.orientation_estimator import HarmonicOrientationEstimator
+    """The estimator, with the gate a reading must clear to be counted.
+
+    Still a dictionary, and still called "estimators", because the question
+    this tool answers is "is a change an improvement" - which means running
+    two of something side by side. Add the candidate here and the table
+    grows a row; that is how the fitted one earned its place over the
+    harmonic one it replaced.
+    """
     from adapters.detection.fitted_orientation_estimator import FittedOrientationEstimator
     return {
-        "harmonic (gate 0.10)": (
-            HarmonicOrientationEstimator(padding_px=PADDING_PX, bins=180,
-                                         min_confidence=0.05,
-                                         min_contrast_levels=20.0), 0.10),
         "fitted (gate 0.80)": (
             FittedOrientationEstimator(padding_px=PADDING_PX), 0.80),
     }
@@ -152,10 +154,10 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=120)
     parser.add_argument("--shape", default=None, choices=("square", "star"))
     parser.add_argument("--gates", action="store_true",
-                        help="show how a confidence gate trades coverage for "
-                             "accuracy, instead of comparing the estimators")
+                        help="show how a confidence gate trades coverage "
+                             "for accuracy, at several thresholds")
     args = parser.parse_args()
-    logging.disable(logging.CRITICAL)        # the estimators warn, loudly
+    logging.disable(logging.CRITICAL)        # the estimator warns, loudly
     import cv2
 
     objects = labelled_objects(args.shape, args.limit)

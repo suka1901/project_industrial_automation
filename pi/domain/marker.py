@@ -54,7 +54,7 @@ def marker_world_corners(
 
 
 def pixel_mm_ratio_from_perimeter(perimeter_px: float, side_length_mm: float) -> float:
-    """Pixels per millimetre from a marker's perimeter - the course's method."""
+    """Pixels per millimetre from a marker's perimeter."""
     if side_length_mm <= 0.0:
         raise ValueError("Marker side length must be positive")
     return perimeter_px / (side_length_mm * 4.0)

@@ -1,0 +1,99 @@
+@startuml INA700_pi_cycle
+' INA700 - one pick and place cycle, end to end
+' Author: Suraj Karki
+' Course: INA700 - AI-based pick and place
+'
+' The vision loop runs continuously whether anyone asks for anything or not;
+' a cycle does not start the camera, it reads the newest scene the camera
+' threads have already produced. That is why the position handed to the
+' robot is milliseconds old rather than the result of a fresh capture.
+
+title INA700 - one cycle, from the operator's click to the object in its slot
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam BoxPadding 10
+skinparam sequence {
+  ArrowColor #555555
+  LifeLineBorderColor #999999
+  ParticipantBorderColor #333333
+  ParticipantBackgroundColor #FDF6E8
+  ActorBorderColor #333333
+}
+
+actor "operator" as OP
+
+box "main thread" #FFFFFF
+  participant "TkView" as VIEW
+end box
+
+box "always running" #F7F7F7
+  participant "CaptureWorker" as CAP
+  participant "InferenceWorker\n(VisionPipeline)" as INF
+  participant "MappingWorker\n(CoordinateService)" as MAP
+end box
+
+box "cycle thread" #FFFFFF
+  participant "CycleController" as CYC
+  participant "CompositeSelector" as SEL
+  participant "RobotCommander" as CMD
+end box
+
+participant "ABB controller" as ROB
+
+== the vision loop, running all the time ==
+
+CAP -> CAP : read() at capture_fps
+CAP -> INF : Frame (newest only)
+INF -> INF : detect, orient, colour,\nre-solve the marker
+note right of INF
+  prints the inference time on
+  every pass, as the course asks
+end note
+INF -> MAP : Detections, in pixels
+MAP -> MAP : pixels to millimetres,\nrz = slot angle - measured angle
+MAP -> VIEW : MappedScene, through SharedState
+
+== the operator asks for one object ==
+
+OP -> VIEW : shape + colour,\n"Send pick to robot"
+VIEW -> CYC : PickRequest (through the queue)
+
+CYC -> MAP : the newest scene, not a new capture
+CYC -> SEL : select(objects, request)
+note right of SEL
+  allowed shape, inside the sheet,
+  confident enough, the shape asked
+  for, the colour asked for, then
+  nearest to the origin first
+end note
+SEL --> CYC : the chosen object
+
+alt nothing matched
+  CYC -> VIEW : "no object matched the request"
+  note right of CYC
+    the attempt is spent; up to three
+    in all, a pause between each
+  end note
+else one was chosen
+  CYC -> VIEW : "PRESS THE YELLOW BUTTON"
+  CYC -> CMD : send this object
+  CMD -> ROB : move <shape> x y rz#
+
+  ROB -> ROB : waits for the yellow button
+  OP -> ROB : presses it
+  ROB -> ROB : pick at (x, y), rotate by rz,\nplace in that shape's slot
+  ROB --> CMD : DONE:
+
+  CMD --> CYC : SUCCESS
+  CYC -> VIEW : "the robot is placing the square"
+
+  CYC -> MAP : look again
+  alt the object is gone from where it was
+    CYC -> VIEW : placed successfully
+  else it is still on the board
+    CYC -> CYC : retry, the camera disagreed\nwith the robot
+  end
+end
+
+@enduml
