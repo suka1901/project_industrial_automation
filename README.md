@@ -19,7 +19,7 @@ detected or acted on.
 ```
 INA700/
 ├─ README.md              this file: what it is and why it is built this way
-├─ LAB.md                 what to do at the station, in order
+├─ docs/COMMISSIONING.md  bringing the cell up, and running it
 ├─ deploy.ps1 / .sh       build, copy to the Pi, verify, pre-flight it
 ├─ pi/run.sh             the Pi's commands, with its profile already chosen
 ├─ make_submission.py     builds FinalProject_SurajKarki.zip
@@ -39,7 +39,7 @@ python smoke_test.py --config config/profiles/mock.yaml
 ```
 
 Full detail, including the tests that use the real trained model, is in
-[LAB.md](LAB.md).
+[docs/COMMISSIONING.md](docs/COMMISSIONING.md).
 
 ---
 
@@ -155,32 +155,25 @@ from `config.yaml` and records which one in `slot_angles.yaml`, and preflight
 FAILS on a mismatch rather than letting every placement be out by the
 difference.
 
-### The original estimator, still selectable as `orientation.kind: harmonic`
+### The angle is never regressed by the network
 
-`cv2.minAreaRect` gives an angle unique only modulo 90°, which fits a square and
-nothing else. It also jumps on a star as the defining pair of points changes.
+The model only has to *find* the object; the angle is measured afterwards from
+its silhouette. That is what lets training rotate and flip the images freely,
+and it is why a model trained on 216 photographs can be trusted with an angle
+at all. A network asked to regress the angle could not be augmented that way,
+and would have to learn each shape's symmetry from the data rather than being
+told it.
 
-Instead the outline becomes a radius-versus-direction signature, and the N-th
-harmonic is taken, where N is the shape's symmetry order — 5 for a star, 4 for a
-square, 3 for a triangle, 6 for a hexagon:
+An earlier version measured the angle from the outline's N-th harmonic instead
+of by fitting a shape. It was more precise in the middle of its range and much
+worse in the tail, and it refused to answer on low contrast rather than
+guessing. It was removed once the fit-based estimator had been benchmarked
+against it over 184 labelled objects at five known rotations each.
 
-```
-Z = Σ r_k · exp(i · N · θ_k)          orientation = arg(Z) / N
-```
+### Nothing is refused on a doubtful angle
 
-Rotating the object by α multiplies Z by exp(i·N·α), so the phase *is* the
-orientation. Three things follow:
-
-- The answer arrives already folded into ±180/N — the shape's own symmetry
-  period. A star comes out within ±36° with no separate folding step.
-- **|Z| is a free confidence measure.** A circle has no N-th harmonic, so the
-  magnitude collapses and the estimator reports *no rotation* rather than noise.
-- Because the model only has to *find* the object, training can rotate and flip
-  the images freely. A system that regressed the angle from the network could
-  not.
-
-**Nothing is ever refused on a doubtful angle.** Every detected object is
-placed at the best angle that could be worked out for it. When no segmentation
+Every detected object is placed at the best angle that could be worked
+out for it. When no segmentation
 fits well, the candidates' fit-weighted consensus is sent instead of a zero:
 they fail for different reasons — a shadow edge, a clipped tip, a hole in the
 mask — so what they agree on is more likely the object's angle than any one of
@@ -466,7 +459,7 @@ model to stay quiet on them.
 
 ### Measured at the station, not before
 
-| Value | File | Step in LAB.md |
+| Value | File | Stage in the commissioning guide |
 |---|---|---|
 | `place_slot_angles_deg` | `pi/config/config.yaml` | 4 — and preflight FAILS until they are re-measured with the running estimator |
 | `y_axis_flipped`, `angle_sign` | `pi/config/config.yaml` | 3.2, 3.3 |

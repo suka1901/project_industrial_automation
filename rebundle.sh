@@ -17,7 +17,7 @@ tar -czf ina700-pi.tar.gz \
     model/dataset/yolo/val/images \
     model/dataset/yolo/val/labels \
     model/dataset/yolo/data.yaml \
-    LAB.md
+    docs/COMMISSIONING.md
 
 echo
 printf "  ina700-pi.tar.gz   %s   junk files: %s\n" \

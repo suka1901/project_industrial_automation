@@ -4,7 +4,7 @@ The meter exists to turn "does this look bright enough" into a number, so
 what is tested is the boundaries of that number: the band it calls good, and
 the contrast below which no segmentation can find an outline at all. Both
 come from measurements over the labelled photos, and both are repeated in
-LAB.md - a test is what keeps the three in step.
+the commissioning guide - a test is what keeps the three in step.
 
 Author: Suraj Karki
 Course: INA700 - AI-based pick and place

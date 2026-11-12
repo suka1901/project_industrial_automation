@@ -32,7 +32,7 @@ INCLUDE = (
     "model/label_config.xml",
     "ServerCommuncatio.sys",    # the course's module, with its address set
     "README.md",
-    "LAB.md",
+    "docs/COMMISSIONING.md",
     "rebundle.sh",
     "rebundle.ps1",
     "make_submission.py",

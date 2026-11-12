@@ -31,7 +31,7 @@ class TestWhatIsShipped(unittest.TestCase):
         self.assertIn("pi/main.py", shipped)
         self.assertIn("robot/MainModule.mod", shipped)
         self.assertIn("model/best.pt", shipped)
-        self.assertIn("LAB.md", shipped)
+        self.assertIn("docs/COMMISSIONING.md", shipped)
 
     def test_the_dataset_stays_out(self):
         """2.1 GB of camera frames is not a program file."""
@@ -67,8 +67,8 @@ class TestItRefusesAnIncompleteHandIn(unittest.TestCase):
 
 class TestThePackAndGoIsFound(unittest.TestCase):
     def test_an_explicit_file_is_used(self):
-        self.assertEqual(builder.find_pack_and_go(str(ROOT / "LAB.md")),
-                         ROOT / "LAB.md")
+        self.assertEqual(builder.find_pack_and_go(str(ROOT / "README.md")),
+                         ROOT / "README.md")
 
     def test_a_path_that_is_not_there_is_not_invented(self):
         self.assertIsNone(builder.find_pack_and_go(str(ROOT / "no_such.pgz")))
