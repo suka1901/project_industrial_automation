@@ -473,8 +473,8 @@ Everything is fixed on the PC — the camera plugs in here, every number is
 edited here — and `deploy.ps1` (or `deploy.sh`) builds, copies, unpacks and then
 checks that the Pi's `config.yaml` hashes the same as this one before running
 preflight there. Nothing is edited on the Pi, so there is never a second copy of
-the truth. Nothing taught on the robot travels in the bundle at all: it lives in
-the controller and reaches the submission through the Pack-and-Go.
+the truth. Nothing taught on the robot travels in the bundle at all: `wobj1`,
+`wobj2`, the taught points and the `.mod` modules live in the controller.
 
 ### Known risks
 
@@ -491,9 +491,10 @@ out as long as it is never turned.
 
 ---
 
-## Hand-in
+## Packaging
 
-A single ZIP named exactly **`FinalProject_SurajKarki.zip`** containing the
-complete program files, the trained AI model, and a **Pack-and-Go** of the robot
-station from the examination. The Pack-and-Go can only be made in the lab — a
-missing one means the submission is not assessed.
+`make_submission.py` writes a single ZIP named **`FinalProject_SurajKarki.zip`**
+containing the program files, the RAPID modules, the trained model and the
+documentation. It runs the full test suite first and refuses to build from a
+failing tree, because a zip built from one looks identical to a zip built from
+a working one.

@@ -47,10 +47,7 @@ Claude outputs/
 # Deployment bundle for the Pi, rebuilt on demand.
 ina700-pi.tar.gz
 
-# The station's Pack-and-Go and the built submission. Both are outputs, and
-# the Pack-and-Go is made at the examination rather than kept here.
-pack-and-go/*
-!pack-and-go/README.txt
+# The built submission is an output, not a source.
 FinalProject_*.zip
 
 # The Pi address this PC last deployed to.

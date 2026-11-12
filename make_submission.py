@@ -16,10 +16,6 @@ ROOT = Path(__file__).resolve().parent
 STUDENT = "SurajKarki"
 ZIP_NAME = f"FinalProject_{STUDENT}.zip"
 
-# Where a Pack-and-Go is looked for when one is not given on the command line.
-PACK_AND_GO_SUFFIXES = (".pgz", ".zip")
-PACK_AND_GO_FOLDER = "pack-and-go"
-
 # Everything that is a program file, a document or the model.
 INCLUDE = (
     "pi",                       # the vision system, its tests and its tools
@@ -67,24 +63,7 @@ def wanted_files(root: Path = ROOT, include: Iterable[str] = INCLUDE) -> List[Pa
     return sorted(set(found))
 
 
-def find_pack_and_go(given: Optional[str], root: Path = ROOT) -> Optional[Path]:
-    """The station's Pack-and-Go, given explicitly or left in pack-and-go/."""
-    if given:
-        path = Path(given).expanduser()
-        return path if path.is_file() else None
-
-    folder = root / PACK_AND_GO_FOLDER
-    if not folder.is_dir():
-        return None
-    candidates = [path for path in sorted(folder.iterdir())
-                  if path.is_file() and path.suffix.lower() in PACK_AND_GO_SUFFIXES]
-    # The newest, so re-exporting during the exam and running this again does
-    # the obvious thing rather than shipping the morning's station.
-    return max(candidates, key=lambda path: path.stat().st_mtime) if candidates else None
-
-
-def missing_requirements(files: List[Path],
-                         pack_and_go: Optional[Path]) -> List[str]:
+def missing_requirements(files: List[Path]) -> List[str]:
     """What the course asks for and this build does not have."""
     missing = []
     if not any(path.parts[:1] == ("pi",) for path in files):
@@ -93,9 +72,6 @@ def missing_requirements(files: List[Path],
         missing.append("the robot program (robot/)")
     if not any("best" in path.name for path in files):
         missing.append("the trained model (model/best.pt and best_ncnn_model)")
-    if pack_and_go is None:
-        missing.append("a Pack-and-Go of the station (--pack-and-go, or drop "
-                       f"it in {PACK_AND_GO_FOLDER}/)")
     return missing
 
 
@@ -107,48 +83,36 @@ def tests_pass(root: Path = ROOT) -> bool:
     return result.returncode == 0
 
 
-def build(files: List[Path], pack_and_go: Optional[Path],
-          out: Path, root: Path = ROOT) -> Tuple[int, int]:
+def build(files: List[Path], out: Path,
+          root: Path = ROOT) -> Tuple[int, int]:
     """Write the zip. Everything sits under one folder, as a marker expects."""
     written = 0
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         for relative in files:
             archive.write(root / relative, f"{out.stem}/{relative.as_posix()}")
             written += 1
-        if pack_and_go is not None:
-            archive.write(pack_and_go,
-                          f"{out.stem}/{PACK_AND_GO_FOLDER}/{pack_and_go.name}")
-            written += 1
     return written, out.stat().st_size
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
-    parser.add_argument("--pack-and-go", default=None,
-                        help="the station's Pack-and-Go file; without it, the "
-                             f"newest one in {PACK_AND_GO_FOLDER}/ is used")
     parser.add_argument("--out", default=str(ROOT / ZIP_NAME))
     parser.add_argument("--skip-tests", action="store_true",
                         help="only for a dry run before the station - the "
                              "submitted zip should never be built this way")
     parser.add_argument("--allow-missing", action="store_true",
-                        help="build anyway, for a rehearsal before the exam. "
-                             "The result is NOT a valid submission")
+                        help="build even when something required is "
+                             "missing. The result is incomplete")
     args = parser.parse_args()
 
     files = wanted_files()
-    pack_and_go = find_pack_and_go(args.pack_and_go)
-    missing = missing_requirements(files, pack_and_go)
+    missing = missing_requirements(files)
 
     if missing and not args.allow_missing:
-        print("\nNot built. The course requires a single zip containing the "
-              "complete program files, the trained model and a Pack-and-Go of "
-              "the station - and a submission that does not follow the pattern "
-              "is not assessed.\n\nThis build is missing:")
+        print("\nNot built. The zip must contain the complete program files "
+              "and the trained model.\n\nThis build is missing:")
         for item in missing:
             print(f"  - {item}")
-        print("\nExport the Pack-and-Go in RobotStudio at the end of the "
-              "examination, then run this again.")
         return 1
 
     if not args.skip_tests and not tests_pass():
@@ -163,15 +127,12 @@ def main() -> int:
               f"resubmission.")
         return 1
 
-    count, size = build(files, pack_and_go, out)
+    count, size = build(files, out)
     print(f"\n  {out.name}   {size / 1e6:.1f} MB   {count} files")
     print(f"  program files : pi/, robot/, {len(files)} in total")
     print(f"  trained model : model/best.pt and model/best_ncnn_model")
-    print(f"  pack and go   : "
-          f"{pack_and_go.name if pack_and_go else 'MISSING - not a valid submission'}")
     if missing:
-        print("\n  built with --allow-missing: this is a rehearsal, not a "
-              "submission.")
+        print("\n  built with --allow-missing: incomplete.")
     return 0
 
 

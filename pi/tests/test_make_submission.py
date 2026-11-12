@@ -39,19 +39,19 @@ class TestWhatIsShipped(unittest.TestCase):
 
 
 class TestItRefusesAnIncompleteHandIn(unittest.TestCase):
-    def test_a_missing_pack_and_go_is_named(self):
-        missing = builder.missing_requirements(builder.wanted_files(), None)
-        self.assertTrue(any("Pack-and-Go" in item for item in missing))
-
     def test_a_missing_model_is_named(self):
         files = [Path("pi/main.py"), Path("robot/MainModule.mod")]
-        missing = builder.missing_requirements(files, Path("station.pgz"))
-        self.assertTrue(any("model" in item for item in missing))
+        self.assertTrue(any("model" in item
+                            for item in builder.missing_requirements(files)))
+
+    def test_a_missing_program_is_named(self):
+        files = [Path("model/best.pt")]
+        missing = builder.missing_requirements(files)
+        self.assertTrue(any("pi/" in item for item in missing))
+        self.assertTrue(any("robot/" in item for item in missing))
 
     def test_a_complete_build_has_nothing_missing(self):
-        self.assertEqual(
-            builder.missing_requirements(builder.wanted_files(), Path("station.pgz")),
-            [])
+        self.assertEqual(builder.missing_requirements(builder.wanted_files()), [])
 
     def test_the_file_name_is_not_negotiable(self):
         """A wrong name is reported as failed, so it is refused here instead."""
@@ -64,28 +64,6 @@ class TestItRefusesAnIncompleteHandIn(unittest.TestCase):
             sys.argv = argv
         self.assertFalse((ROOT / "INA700_final.zip").exists())
 
-
-class TestThePackAndGoIsFound(unittest.TestCase):
-    def test_an_explicit_file_is_used(self):
-        self.assertEqual(builder.find_pack_and_go(str(ROOT / "README.md")),
-                         ROOT / "README.md")
-
-    def test_a_path_that_is_not_there_is_not_invented(self):
-        self.assertIsNone(builder.find_pack_and_go(str(ROOT / "no_such.pgz")))
-
-    def test_the_newest_in_the_folder_wins(self):
-        """Re-exporting during the exam and running again must ship the new one."""
-        import tempfile, time
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            folder = root / builder.PACK_AND_GO_FOLDER
-            folder.mkdir()
-            (folder / "morning.pgz").write_text("old")
-            time.sleep(0.01)
-            (folder / "after_the_exam.pgz").write_text("new")
-            newest = builder.find_pack_and_go(None, root)
-            assert newest is not None, "neither Pack-and-Go was found"
-            self.assertEqual(newest.name, "after_the_exam.pgz")
 
 
 if __name__ == "__main__":
